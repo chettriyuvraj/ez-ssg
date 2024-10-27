@@ -113,7 +113,7 @@ var includesEFS embed.FS
 //go:embed layouts/*
 var layoutsEFS embed.FS
 
-//go:embed assets/*
+//go:embed assets/*.css
 var assetsEFS embed.FS
 
 func format() {
@@ -205,7 +205,11 @@ func format() {
 		log.Fatalf("error creating site/tagged folder: %v", err)
 	}
 	if err = os.CopyFS(SITE_DIR, assetsEFS); err != nil {
-		log.Fatalf("error copying site/ folder: %v", err)
+		log.Fatalf("error copying site/assets folder: %v", err)
+	}
+	assetsFS := os.DirFS(ASSETS_DIR)
+	if err = os.CopyFS(SITE_DIR, assetsFS); err != nil {
+		log.Fatalf("error copying your assets folder: %v", err)
 	}
 
 	/* First render special pages */
