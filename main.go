@@ -208,8 +208,8 @@ func format() {
 		log.Fatalf("error copying site/assets folder: %v", err)
 	}
 	assetsFS := os.DirFS(ASSETS_DIR)
-	if err = os.CopyFS(SITE_DIR, assetsFS); err != nil {
-		log.Fatalf("error copying your assets folder: %v", err)
+	if err = os.CopyFS(filepath.Join(SITE_DIR, ASSETS_DIR), assetsFS); err != nil {
+		fmt.Printf("\nerror copying your assets folder: %v", err)
 	}
 
 	/* First render special pages */
