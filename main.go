@@ -107,16 +107,17 @@ var specialFiles []string = []string{INDEX_FILE, BLOG_FILE}
 
 var ErrNoDataInFile = errors.New("no data in file")
 
-//go:embed includes/*.html
+//go:embed includes/*
 var includesEFS embed.FS
 
-//go:embed layouts/*.html
+//go:embed layouts/*
 var layoutsEFS embed.FS
 
-//go:embed assets/*.css
+//go:embed assets/*
 var assetsEFS embed.FS
 
 func format() {
+
 	/* Parse config */
 	f, err := os.Open(CONFIG_FILE)
 	if err != nil {
@@ -183,13 +184,14 @@ func format() {
 	}
 
 	/* We have to execute includes template for each page */
-	includes := template.Must(template.ParseFS(includesEFS, "includes/*.html"))
 	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
 	if err != nil {
-		log.Fatalf("error finding includes filenames: %v", err)
+		log.Fatalf("error finding includes filenames: %s", err)
 	}
+	includes := template.Must(template.ParseFS(includesEFS, includesFilenames...))
 	for _, name := range includesFilenames {
-		includesRender[name] = ""
+		root := strings.Split(name, "/")[1]
+		includesRender[root] = ""
 	}
 
 	/* Delete old site directory and create new one + copy over assets folder */
