@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -106,6 +107,15 @@ var specialFiles []string = []string{INDEX_FILE, BLOG_FILE}
 
 var ErrNoDataInFile = errors.New("no data in file")
 
+//go:embed includes/*.html
+var includesEFS embed.FS
+
+//go:embed layouts/*.html
+var layoutsEFS embed.FS
+
+//go:embed assets/*.css
+var assetsEFS embed.FS
+
 func format() {
 	/* Parse config */
 	f, err := os.Open(CONFIG_FILE)
@@ -170,18 +180,25 @@ func format() {
 		cfg.Tags = append(cfg.Tags, tag)
 	}
 
-	// fmt.Printf("\n\nConfig: %v\n\n", cfg)
-
 	/* We have to execute includes template for each page */
-	pattern := filepath.Join(INCLUDES_DIR, "*.html")
-	includes := template.Must(template.ParseGlob(pattern))
-	includesFS := os.DirFS(INCLUDES_DIR)
-	includesFilenames, err := fs.Glob(includesFS, "*.html")
+	includes := template.Must(template.ParseFS(includesEFS, "includes/*.html"))
+	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
 	if err != nil {
 		log.Fatalf("error finding includes filenames: %v", err)
 	}
 	for _, name := range includesFilenames {
 		includesRender[name] = ""
+	}
+
+	/* Delete old site directory and create new one + copy over assets folder */
+	if err = os.RemoveAll(SITE_DIR); err != nil {
+		log.Fatalf("error deleting old site/ folder to create new one: %v", err)
+	}
+	if err = os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
+		log.Fatalf("error creating site/blog folder: %v", err)
+	}
+	if err = os.CopyFS(SITE_DIR, assetsEFS); err != nil {
+		log.Fatalf("error copying site/ folder: %v", err)
 	}
 
 	/* First render special pages */
@@ -223,20 +240,6 @@ func format() {
 			log.Fatalf("error rendering tags: %v", err)
 		}
 	}
-
-	/* Delete old site/assets and create new one */
-	assetsFS := os.DirFS(ASSETS_DIR)
-	assetsPath := filepath.Join(SITE_DIR, ASSETS_DIR)
-	if err = os.RemoveAll(assetsPath); err != nil {
-		log.Fatalf("error deleting old site/assets folder to create new one: %v", err)
-	}
-	if err = os.MkdirAll(assetsPath, 0750); err != nil {
-		log.Fatalf("error creating site/assets folder: %v", err)
-	}
-	if err = os.CopyFS(assetsPath, assetsFS); err != nil {
-		log.Fatalf("error copying site/assets folder: %v", err)
-	}
-
 }
 
 func render(filename string, path string, destDir string, cfg Config, includes *template.Template, tag Tag) error {
@@ -275,8 +278,8 @@ func render(filename string, path string, destDir string, cfg Config, includes *
 		Tag:      tag,
 	}
 	layoutFilename := page.Metadata.Layout
-	layoutTempl, err := template.ParseFiles(filepath.Join(LAYOUTS_DIR, fmt.Sprintf("%s.html", layoutFilename)))
-	// fmt.Printf("\n\nLayout templ: %s\n\n", layoutTempl)
+	layoutTempl, err := template.ParseFS(layoutsEFS, fmt.Sprintf("layouts/%s.html", layoutFilename))
+
 	if err != nil {
 		return fmt.Errorf("error parsing layout template file %s: %v", layoutFilename, err)
 	}
@@ -307,7 +310,6 @@ func parsePost(path string) (post Post, err error) {
 	if err != nil {
 		return post, fmt.Errorf("error reading metadata file: %v", err)
 	}
-	// fmt.Printf("\n\nRaw Metadata: %s\n\n", string(metadataRaw))
 	err = json.Unmarshal(metadataRaw, &post.Metadata)
 	if err != nil {
 		return post, fmt.Errorf("error unmarshalling metadata: %v", err)
@@ -360,7 +362,6 @@ func newCustomizedRender() *html.Renderer {
 	opts := html.RendererOptions{
 		Flags:          html.CommonFlags | html.HrefTargetBlank,
 		RenderNodeHook: myRenderHook,
-		CSS:            filepath.Join(ASSETS_DIR, "style.css"), // Not sure if this is working
 	}
 	return html.NewRenderer(opts)
 }
