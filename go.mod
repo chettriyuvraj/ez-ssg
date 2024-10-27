@@ -1,4 +1,4 @@
-module ez
+module github.com/chettriyuvraj/ez-ssg
 
 go 1.23.1
 
