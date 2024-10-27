@@ -61,7 +61,7 @@ type PostMetadata struct {
 	Title       string   `json:"title"`
 	Date        string   `json:"date"`
 	Description string   `json:"description"`
-	URL         string   `json:"URL"`
+	URL         string   `json:"URL"` /* URL will be the {filenameRoot}/html */
 	Subtitle    string   `json:"subtitle"`
 	Tags        []string `json:"tags"`
 }
@@ -154,6 +154,8 @@ func format() {
 		if err = json.Unmarshal(raw, &metadata); err != nil {
 			log.Fatalf("error unmarshaling posts metadata file: %v", err)
 		}
+		rootName := strings.Split(n, ".")[0]
+		metadata.URL = fmt.Sprintf("%s.html", rootName)
 		cfg.Posts = append(cfg.Posts, metadata)
 	}
 
