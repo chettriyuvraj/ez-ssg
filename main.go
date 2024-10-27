@@ -197,6 +197,9 @@ func format() {
 	if err = os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
 		log.Fatalf("error creating site/blog folder: %v", err)
 	}
+	if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
+		log.Fatalf("error creating site/tagged folder: %v", err)
+	}
 	if err = os.CopyFS(SITE_DIR, assetsEFS); err != nil {
 		log.Fatalf("error copying site/ folder: %v", err)
 	}
@@ -235,6 +238,11 @@ func format() {
 		if tag.Slug == "" {
 			log.Fatalf("tag not found: %s", rootName)
 		}
+
+		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", rootName), 0750); err != nil {
+			log.Fatalf("error creating site/tagged/%s folder: %v", rootName, err)
+		}
+
 		err = render(name, filepath.Join(tagsDir, name), destDir, cfg, includes, tag)
 		if err != nil {
 			log.Fatalf("error rendering tags: %v", err)
