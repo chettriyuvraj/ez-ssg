@@ -224,6 +224,19 @@ func format() {
 		}
 	}
 
+	/* Delete old site/assets and create new one */
+	assetsFS := os.DirFS(ASSETS_DIR)
+	assetsPath := filepath.Join(SITE_DIR, ASSETS_DIR)
+	if err = os.RemoveAll(assetsPath); err != nil {
+		log.Fatalf("error deleting old site/assets folder to create new one: %v", err)
+	}
+	if err = os.MkdirAll(assetsPath, 0750); err != nil {
+		log.Fatalf("error creating site/assets folder: %v", err)
+	}
+	if err = os.CopyFS(assetsPath, assetsFS); err != nil {
+		log.Fatalf("error copying site/assets folder: %v", err)
+	}
+
 }
 
 func render(filename string, path string, destDir string, cfg Config, includes *template.Template, tag Tag) error {
