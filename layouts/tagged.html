@@ -12,7 +12,7 @@
     </p>
 
     {{ $tag := .Tag.Slug }}
-    {{ $baseURL := .Site.Slug }}
+    {{ $baseURL := .Site.URL }}
     <ul class="blog-posts">
         {{ range .Site.Posts }}
             {{ if .ContainsTag $tag }}
@@ -24,7 +24,7 @@
                             </time>
                         </i>
                     </span>
-                    <a href="{{.Site.BaseURL}}/blog/{{.URL}}">{{ .Title }}</a>
+                    <a href="{{$baseURL}}/blog/{{.URL}}">{{ .Title }}</a>
                 </li>
             {{ end }}
         {{ end }}
