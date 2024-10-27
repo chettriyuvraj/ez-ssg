@@ -16,14 +16,14 @@
                     </time>
                 </i>
             </span>
-            <a href="{{.URL}}">{{.Title}}</a>
+            <a href="/blog/{{.Title}}">{{.Title}}</a>
         </li>
         {{end}}
     </ul>
 
     <small>
     {{range .Site.Tags}}
-	<a href="tagged/{{.Slug}}" title="See all posts by {{.Slug}} tag">#{{.Slug}}</a>
+	<a href="tagged/{{.Slug}}/{{.Slug}}.html" title="See all posts by {{.Slug}} tag">#{{.Slug}}</a>
     {{end}}
     </small>
 
