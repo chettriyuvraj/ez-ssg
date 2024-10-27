@@ -2,4 +2,5 @@ site
 markdown
 config.json
 .gitconfig
-assets
+assets/images
+assets/favicon.ico
