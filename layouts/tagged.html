@@ -1,0 +1,39 @@
+{{.Includes.Head}}
+
+<main>
+
+    {{.Includes.Header}}
+
+    {{.Content}}
+
+    <p>
+        Here be writings, tagged as <b>"{{.Tag.Slug}}"</b>.<br>
+        <small><a href="{{.Site.URL}}{{.Site.Paths.Blog}}">Remove filter</a></small>
+    </p>
+
+    {{ $tag := .Tag.Slug }}
+    <ul class="blog-posts">
+        {{ range .Site.Posts }}
+            {{ if .ContainsTag $tag }}
+                <li>
+                    <span>
+                        <i>
+                            <time datetime="{{ .Date }}" pubdate="">
+                                {{ .Date }}
+                            </time>
+                        </i>
+                    </span>
+                    <a href="{{ .URL }}">{{ .Title }}</a>
+                </li>
+            {{ end }}
+        {{ end }}
+    </ul>
+
+
+</main>
+
+{{.Includes.Footer}}
+
+</body>
+
+</html>

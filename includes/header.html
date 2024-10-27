@@ -1,0 +1,9 @@
+<h2 class="title">{{.Site.Title}}</h2>
+<nav>
+    <a href="{{.Site.URL}}">Home</a> 
+    <a href="{{.Site.URL}}{{.Site.Paths.Blog}}">Blog</a>
+
+    {{range .Site.SpecialLinks}}
+    <a href="{{.URL}}">[{{.DisplayText}}]</a>
+    {{end}}
+</nav>

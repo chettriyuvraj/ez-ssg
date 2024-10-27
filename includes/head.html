@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{if .Page.Title }}{{.Page.Title}}{{else}}{{.Site.Title}}{{end}}</title>
+    <meta name="description" content="{{if.Page.Description}}{{.Page.Description}}{{else}}{{.Site.Description}}{{end}}">
+    <link rel="shortcut icon" href="{{.Site.URL}}/assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="{{.Site.URL }}/assets/favicon.ico" type="image/x-icon">
+    <link href="{{.Site.BaseURL}}/feed.xml" rel="alternate" type="application/atom+xml">
+    <link rel="canonical" href="{{.Site.BaseURL}}{{.Page.URL}}">
+    <!-- <link rel="stylesheet" href="{{.Site.URL}}/assets/style.css"> -->
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+
+<!-- Google tag -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={{.Site.Analytics.TrackingID}}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', '{{.Site.Analytics.TrackingID}}');
+</script>
+
+
+<body>

@@ -1,0 +1,36 @@
+{{.Includes.Head}}
+
+<main>
+
+    {{.Includes.Header}}
+
+    {{ .Content }}
+
+    <ul class="blog-posts">
+        {{range .Site.Posts}}
+        <li>
+            <span>
+                <i>
+                    <time datetime="2022-01-28" pubdate="">
+                        {{.Date}}
+                    </time>
+                </i>
+            </span>
+            <a href="{{.URL}}">{{.Title}}</a>
+        </li>
+        {{end}}
+    </ul>
+
+    <small>
+    {{range .Site.Tags}}
+	<a href="tagged/{{.Slug}}" title="See all posts by {{.Slug}} tag">#{{.Slug}}</a>
+    {{end}}
+    </small>
+
+</main>
+
+{{.Includes.Footer}}
+
+</body>
+
+</html>
