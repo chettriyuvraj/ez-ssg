@@ -47,16 +47,12 @@ type Config struct {
 	Paths        Paths           `json:"paths"`
 	Analytics    GoogleAnalytics `json:"google_analytics"`
 	Tags         []Tag           `json:"tags"`
-	Posts        []PostMetadata  `json:"posts"`
+	Posts        []Post          `json:"posts"`
 }
 
 type Post struct {
-	Metadata PostMetadata `json:"metadata"`
-	Markdown []byte       `json:"markdown"`
-	HTML     []byte       `json:"html"`
-}
-
-type PostMetadata struct {
+	Markdown    []byte   `json:"markdown"`
+	HTML        []byte   `json:"html"`
 	Layout      string   `json:"layout"`
 	Title       string   `json:"title"`
 	Date        string   `json:"date"`
@@ -68,14 +64,14 @@ type PostMetadata struct {
 
 type IncludesContent struct {
 	Site Config
-	Page PostMetadata
+	Post Post
 }
 
 type LayoutContent struct {
 	Includes map[string]template.HTML
 	Content  template.HTML
 	Site     Config
-	Page     PostMetadata
+	Post     Post
 	Tag      Tag
 }
 
@@ -146,18 +142,18 @@ func format() {
 		if err != nil {
 			log.Fatalf("error reading posts metadata file: %v", err)
 		}
-		raw, err := io.ReadAll(f)
+		metadata, err := io.ReadAll(f)
 		if err != nil {
 			log.Fatalf("error reading posts metadata file: %v", err)
 		}
 
-		var metadata PostMetadata
-		if err = json.Unmarshal(raw, &metadata); err != nil {
+		var post Post
+		if err = json.Unmarshal(metadata, &post); err != nil {
 			log.Fatalf("error unmarshaling posts metadata file: %v", err)
 		}
 		rootName := strings.Split(n, ".")[0]
-		metadata.URL = fmt.Sprintf("%s.html", rootName)
-		cfg.Posts = append(cfg.Posts, metadata)
+		post.URL = fmt.Sprintf("%s.html", rootName)
+		cfg.Posts = append(cfg.Posts, post)
 	}
 
 	tagsDir := filepath.Join(MARKDOWN_DIR, "tags")
@@ -259,7 +255,7 @@ func format() {
 }
 
 func render(filename string, path string, destDir string, cfg Config, includes *template.Template, tag Tag) error {
-	page, err := parsePost(path)
+	post, err := parsePost(path)
 	rootName := strings.Split(filename, ".")[0]
 	if err != nil {
 		return fmt.Errorf("error parsing %s: %v", rootName, err)
@@ -268,7 +264,7 @@ func render(filename string, path string, destDir string, cfg Config, includes *
 	/* Generate includes using page and site info*/
 	includesContent := IncludesContent{
 		Site: cfg,
-		Page: page.Metadata,
+		Post: post,
 	}
 	for k := range includesRender {
 		b := bytes.Buffer{}
@@ -287,13 +283,13 @@ func render(filename string, path string, destDir string, cfg Config, includes *
 
 	/* Generate layout using page and includes info */
 	layoutContent := LayoutContent{
-		Content:  template.HTML(page.HTML),
+		Content:  template.HTML(post.HTML),
 		Site:     cfg,
-		Page:     page.Metadata,
+		Post:     post,
 		Includes: includesRender,
 		Tag:      tag,
 	}
-	layoutFilename := page.Metadata.Layout
+	layoutFilename := post.Layout
 	layoutTempl, err := template.ParseFS(layoutsEFS, fmt.Sprintf("layouts/%s.html", layoutFilename))
 
 	if err != nil {
@@ -326,7 +322,7 @@ func parsePost(path string) (post Post, err error) {
 	if err != nil {
 		return post, fmt.Errorf("error reading metadata file: %v", err)
 	}
-	err = json.Unmarshal(metadataRaw, &post.Metadata)
+	err = json.Unmarshal(metadataRaw, &post)
 	if err != nil {
 		return post, fmt.Errorf("error unmarshalling metadata: %v", err)
 	}
@@ -382,6 +378,6 @@ func newCustomizedRender() *html.Renderer {
 	return html.NewRenderer(opts)
 }
 
-func (p PostMetadata) ContainsTag(tag string) bool {
+func (p Post) ContainsTag(tag string) bool {
 	return slices.Contains(p.Tags, tag)
 }

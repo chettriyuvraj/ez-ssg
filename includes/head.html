@@ -5,12 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>{{if .Page.Title }}{{.Page.Title}}{{else}}{{.Site.Title}}{{end}}</title>
-    <meta name="description" content="{{if.Page.Description}}{{.Page.Description}}{{else}}{{.Site.Description}}{{end}}">
+    <title>{{if .Post.Title }}{{.Post.Title}}{{else}}{{.Site.Title}}{{end}}</title>
+    <meta name="description" content="{{if.Post.Description}}{{.Post.Description}}{{else}}{{.Site.Description}}{{end}}">
     <link rel="shortcut icon" href="{{.Site.URL}}/assets/favicon.ico" type="image/x-icon">
     <link rel="icon" href="{{.Site.URL }}/assets/favicon.ico" type="image/x-icon">
     <link href="{{.Site.BaseURL}}/feed.xml" rel="alternate" type="application/atom+xml">
-    <link rel="canonical" href="{{.Site.BaseURL}}{{.Page.URL}}">
+    <link rel="canonical" href="{{.Site.BaseURL}}{{.Post.URL}}">
     <!-- <link rel="stylesheet" href="{{.Site.URL}}/assets/style.css"> -->
     <link rel="stylesheet" href="{{.Site.URL}}/assets/style.css">
 </head>
