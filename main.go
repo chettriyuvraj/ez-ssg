@@ -131,31 +131,22 @@ func format() {
 		log.Fatalf("error unmarshaling config file: %v", err)
 	}
 
+	/* Parse posts */
+	var posts []Post
 	postsDir := filepath.Join(MARKDOWN_DIR, "posts")
 	postsFS := os.DirFS(postsDir)
-	postsMetadataFilenames, err := fs.Glob(postsFS, "*.md.json")
-	if err != nil {
-		log.Fatalf("error finding posts metadata files: %v", err)
-	}
-	for _, n := range postsMetadataFilenames {
-		f, err := os.Open(filepath.Join(postsDir, n))
+	postsFilenames, err := fs.Glob(postsFS, "*.md")
+	for _, name := range postsFilenames {
+		path := filepath.Join(postsDir, name)
+		post, err := parse(path)
 		if err != nil {
-			log.Fatalf("error reading posts metadata file: %v", err)
+			log.Fatalf("error rendering posts: %v", err)
 		}
-		metadata, err := io.ReadAll(f)
-		if err != nil {
-			log.Fatalf("error reading posts metadata file: %v", err)
-		}
-
-		var post Post
-		if err = json.Unmarshal(metadata, &post); err != nil {
-			log.Fatalf("error unmarshaling posts metadata file: %v", err)
-		}
-		rootName := strings.Split(n, ".")[0]
-		post.URL = fmt.Sprintf("%s.html", rootName)
-		cfg.Posts = append(cfg.Posts, post)
+		posts = append(posts, post)
 	}
+	cfg.Posts = posts
 
+	/* Parse tags */
 	tagsDir := filepath.Join(MARKDOWN_DIR, "tags")
 	tagsFS := os.DirFS(tagsDir)
 	tagsMetadataFilenames, err := fs.Glob(tagsFS, "*.md.json")
@@ -163,18 +154,14 @@ func format() {
 		log.Fatalf("error finding tags metadata files: %v", err)
 	}
 	for _, n := range tagsMetadataFilenames {
-		f, err := os.Open(filepath.Join(tagsDir, n))
+		metadata, err := read(filepath.Join(tagsDir, n))
 		if err != nil {
-			log.Fatalf("error reading tags metadata file: %v", err)
-		}
-		raw, err := io.ReadAll(f)
-		if err != nil {
-			log.Fatalf("error reading tags metadata file: %v", err)
+			log.Fatalf("error reading tags metadata: %v", err)
 		}
 
 		var tag Tag
-		if err = json.Unmarshal(raw, &tag); err != nil {
-			log.Fatalf("error unmarshaling tags metadata file: %v", err)
+		if err = json.Unmarshal(metadata, &tag); err != nil {
+			log.Fatalf("error unmarshaling tags metadata: %v", err)
 		}
 		cfg.Tags = append(cfg.Tags, tag)
 	}
@@ -218,7 +205,7 @@ func format() {
 	}
 
 	/* Render posts */
-	postsFilenames, err := fs.Glob(postsFS, "*.md")
+	postsFilenames, err = fs.Glob(postsFS, "*.md")
 	for _, name := range postsFilenames {
 		destDir := filepath.Join(SITE_DIR, "blog")
 		err = render(name, filepath.Join(postsDir, name), destDir, cfg, includes, Tag{})
@@ -255,7 +242,7 @@ func format() {
 }
 
 func render(filename string, path string, destDir string, cfg Config, includes *template.Template, tag Tag) error {
-	post, err := parsePost(path)
+	post, err := parse(path)
 	rootName := strings.Split(filename, ".")[0]
 	if err != nil {
 		return fmt.Errorf("error parsing %s: %v", rootName, err)
@@ -312,33 +299,37 @@ func render(filename string, path string, destDir string, cfg Config, includes *
 	return nil
 }
 
-/* Returns post markdown + metadata, HTML remaining */
-func parsePost(path string) (post Post, err error) {
-	metadataF, err := os.Open(fmt.Sprintf("%s.json", path))
+func parse(path string) (post Post, err error) {
+	metadata, err := read(fmt.Sprintf("%s.json", path))
 	if err != nil {
-		return post, fmt.Errorf("error opening metadata file: %v", err)
+		return post, fmt.Errorf("error reading metadata: %v", err)
 	}
-	metadataRaw, err := io.ReadAll(metadataF)
-	if err != nil {
-		return post, fmt.Errorf("error reading metadata file: %v", err)
-	}
-	err = json.Unmarshal(metadataRaw, &post)
+	err = json.Unmarshal(metadata, &post)
 	if err != nil {
 		return post, fmt.Errorf("error unmarshalling metadata: %v", err)
 	}
 
-	mdF, err := os.Open(path)
+	markdown, err := read(path)
 	if err != nil {
-		return post, fmt.Errorf("error opening post markdown file: %v", err)
+		return post, fmt.Errorf("error reading post markdown: %v", err)
 	}
-	mdRaw, err := io.ReadAll(mdF)
-	if err != nil {
-		return post, fmt.Errorf("error reading post markdown file: %v", err)
-	}
-	post.Markdown = mdRaw
-	post.HTML = mdToHTML(mdRaw)
+	post.Markdown = markdown
+	post.HTML = mdToHTML(markdown)
 
 	return post, nil
+}
+
+func read(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("error opening metadata file: %v", err)
+	}
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("error reading metadata file: %v", err)
+	}
+
+	return b, nil
 }
 
 /* https://github.com/gomarkdown/markdown/blob/master/examples/basic.go */
