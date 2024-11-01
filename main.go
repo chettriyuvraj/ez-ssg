@@ -89,7 +89,7 @@ const (
 	MARKDOWN_DIR = "markdown"
 	INCLUDES_DIR = "includes"
 	LAYOUTS_DIR  = "layouts"
-	SITE_DIR     = "site"
+	SITE_DIR     = "doc"
 	ASSETS_DIR   = "assets"
 
 	/* Includes keywords */
@@ -111,7 +111,7 @@ var includesEFS embed.FS
 //go:embed layouts/*
 var layoutsEFS embed.FS
 
-//go:embed assets/*.css
+//go:embed assets/*
 var assetsEFS embed.FS
 
 func format() {
