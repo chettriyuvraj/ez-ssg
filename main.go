@@ -35,7 +35,7 @@ type Link struct {
 }
 type Tag struct {
 	Slug   string `json:"slug"`
-	Layout string `json:"layout"`
+	Layout string `json:"layout,omitempty"`
 }
 
 type Config struct {
@@ -45,8 +45,8 @@ type Config struct {
 	SpecialLinks []Link          `json:"special_links"`
 	Paths        Paths           `json:"paths"`
 	Analytics    GoogleAnalytics `json:"google_analytics"`
-	Tags         []Tag           `json:"tags"`
-	Posts        []Post          `json:"posts"`
+	Tags         []Tag           `json:"tags,omitempty"`
+	Posts        []Post          `json:"posts,omitempty"`
 }
 
 type Post struct {
@@ -135,13 +135,15 @@ var sampleCfg Config = Config{
 }
 
 func main() {
+	logger := log.New(os.Stderr, "", 0)
+
 	if len(os.Args) == 1 {
-		log.Fatal(help())
+		logger.Fatal(help())
 	}
 
 	cmd := os.Args[1]
 	if _, exists := commands[cmd]; !exists {
-		log.Fatalf(help())
+		logger.Fatalf(help())
 	}
 
 	switch cmd {
@@ -151,7 +153,7 @@ func main() {
 		generate()
 	case "post":
 		if len(os.Args) < 3 {
-			log.Fatalf(help())
+			logger.Fatalf(help())
 		}
 
 		title := os.Args[2]
@@ -165,7 +167,7 @@ func main() {
 		initPost(title, tags)
 	case "tag":
 		if len(os.Args) < 3 {
-			log.Fatalf(help())
+			logger.Fatalf(help())
 		}
 
 		tags := os.Args[2:]
@@ -183,48 +185,54 @@ func initDirs() error {
 
 	/* Create sample data for default files */
 	/* Sample config */
-	cfg, err := json.Marshal(sampleCfg)
+	cfg, err := json.MarshalIndent(sampleCfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling sample config to json: %v", err)
 	}
 
 	/* Index file metadata */
 	index := Post{
-		Title:       "<enter title for homepage - this is what is displayed when you hover over your browser page tab>",
-		Description: "<enter description for home page - this is metadata and not website displayable content>",
+		Title:       "(enter title for homepage - this is what is displayed when you hover over your browser page tab)",
+		Description: "(enter description for home page - this is metadata and not website displayable content)",
 	}
-	indexMeta, err := json.Marshal(index)
+	indexMeta, err := json.MarshalIndent(index, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling index file metadata to json: %v", err)
 	}
 
 	/* Blog file metadata */
 	blog := Post{
-		Title:       "<enter title for blog page - this is what is displayed when you hover over your browser page tab>",
-		Description: "<enter description for blog page - this is metadata and not website displayable content>",
+		Title:       "(enter title for blog page - this is what is displayed when you hover over your browser page tab)",
+		Description: "(enter description for blog page - this is metadata and not website displayable content)",
 	}
-	blogMeta, err := json.Marshal(blog)
+	blogMeta, err := json.MarshalIndent(blog, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling blog file metadata to json: %v", err)
 	}
 
-	/* Also called special files - filepath mapped to data */
-	defaultFilesData := map[string][]byte{
-		filepath.Join(MARKDOWN_DIR, INDEX_FILE): indexMeta,
-		filepath.Join(MARKDOWN_DIR, BLOG_FILE):  blogMeta,
-		CONFIG_FILE:                             cfg,
+	/* Create default files */
+	indexFilepath := filepath.Join(MARKDOWN_DIR, INDEX_FILE)
+	if err := os.WriteFile(indexFilepath, []byte{}, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", indexFilepath, err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s.json", indexFilepath), indexMeta, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", indexFilepath, err)
 	}
 
-	/* Create default files */
-	for fpath, data := range defaultFilesData {
-		if err := os.WriteFile(fpath, []byte{}, 0755); err != nil {
-			return fmt.Errorf("error creating file %s: %v", fpath, err)
-		}
-		if fpath != CONFIG_FILE {
-			if err := os.WriteFile(fmt.Sprintf("%s.json", fpath), data, 0755); err != nil {
-				return fmt.Errorf("error creating file %s: %v", fpath, err)
-			}
-		}
+	blogFilepath := filepath.Join(MARKDOWN_DIR, BLOG_FILE)
+	if err := os.WriteFile(blogFilepath, []byte{}, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", blogFilepath, err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s.json", blogFilepath), blogMeta, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", blogFilepath, err)
+	}
+
+	configFilepath := CONFIG_FILE
+	if err := os.WriteFile(configFilepath, []byte{}, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", configFilepath, err)
+	}
+	if err := os.WriteFile(configFilepath, cfg, 0755); err != nil {
+		return fmt.Errorf("error creating file %s: %v", configFilepath, err)
 	}
 
 	return nil
@@ -240,7 +248,7 @@ func initPost(title string, tags []string) error {
 		Tags:  tags,
 		Date:  formatDate(time.Now()),
 	}
-	metaRaw, err := json.Marshal(meta)
+	metaRaw, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling post metadata to json: %v", err)
 	}
@@ -261,7 +269,7 @@ func createTag(tags []string) error {
 		filename := fmt.Sprintf("%s.json", slug)
 		filepath := filepath.Join(MARKDOWN_DIR, "tags", filename)
 
-		raw, err := json.Marshal(Tag{Slug: slug})
+		raw, err := json.MarshalIndent(Tag{Slug: slug}, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error marshaling tag data to json: %v", err)
 		}
@@ -275,7 +283,6 @@ func createTag(tags []string) error {
 }
 
 func generate() {
-
 	if err := reset(); err != nil {
 		log.Fatalf("error resetting site directory: %v", err)
 	}
@@ -471,7 +478,7 @@ func parse(path string) (post Post, err error) {
 	}
 	err = json.Unmarshal(metadata, &post)
 	if err != nil {
-		return post, fmt.Errorf("error unmarshalling metadata: %v", err)
+		return post, fmt.Errorf("error unmarshaling metadata: %v", err)
 	}
 
 	markdown, err := read(path)
@@ -568,44 +575,46 @@ func reset() error {
 }
 
 func help() string {
-	return `Usage: ez-ssg <command> [argument]
+	return `
+ez-ssg		Create a static website like chettriyuvraj.github.io in 5 minutes.
 
-	Create a static website like chettriyuvraj.github.io in 5 minutes.
+Usage: ez-ssg <command> [argument]
 
-	Options:
-	  -h	Specify this flag anywhere in the command and we'll show you this help screen.
-	
-	Commands:
-	  init
-	  
-	  Usage: ez-ssg init
-	  
-	  Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.
-	  
+Options:
+	-h	Specify this flag anywhere in the command and we'll show you this help screen.
 
-	  generate
+Commands:
 
-	  Usage: ez-ssg generate
+  init		Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.
+  generate	Generates the static site.
+  post		Creates a new post
+  tag		Creates one/multiple new tag under which posts can be classified.
 
-	  Generates the static site.
+Commands Usage:
 
-	  
-	  post
+  init
 
-	  Usage: ez-ssg post <title> [options]
-
-	  Creates a new post.
-
-	  Options:
-	    -t	Specify space-separated tags for the post. You must create the tag beforehand using the tag command.
+  Usage: ez-ssg init
 
 
-	  tag
+  generate
 
-	  Usage: ez-ssg tag <tag 1> <tag2> ..
+  Usage: ez-ssg generate
 
-	  Creates one/multiple new tag under which posts can be classified. 
-	`
+
+  post
+
+  Usage: ez-ssg post <title> [options]
+
+  Options:
+    -t	Specify space-separated tags for the post. You must create the tag beforehand using the tag command.
+
+
+  tag
+
+  Usage: ez-ssg tag <tag 1> <tag2> ..
+
+`
 }
 
 func createIfNotExists(filepath string) error {
