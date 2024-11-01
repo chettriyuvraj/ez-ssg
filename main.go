@@ -57,7 +57,6 @@ type Post struct {
 	Title       string   `json:"title"`
 	Date        string   `json:"date"`
 	Description string   `json:"description"`
-	URL         string   `json:"URL"` /* URL will be the {filenameRoot}/html */
 	Subtitle    string   `json:"subtitle"`
 	Tags        []string `json:"tags"`
 	RootName    string   `json:"root_name"` /* If post is abc.md, root name is abc */
@@ -88,7 +87,7 @@ const (
 	MARKDOWN_DIR = "markdown"
 	INCLUDES_DIR = "includes"
 	LAYOUTS_DIR  = "layouts"
-	SITE_DIR     = "doc"
+	SITE_DIR     = "docs"
 	ASSETS_DIR   = "assets"
 
 	/* Includes keywords */
