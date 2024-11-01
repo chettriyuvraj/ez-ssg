@@ -60,6 +60,7 @@ type Post struct {
 	URL         string   `json:"URL"` /* URL will be the {filenameRoot}/html */
 	Subtitle    string   `json:"subtitle"`
 	Tags        []string `json:"tags"`
+	RootName    string   `json:"root_name"` /* If post is abc.md, root name is abc */
 }
 
 type IncludesContent struct {
@@ -197,28 +198,47 @@ func format() {
 
 	/* First render special pages */
 	for _, name := range specialFiles {
+
+		/* Parse post */
+		path := filepath.Join(MARKDOWN_DIR, name)
+		post, err := parse(path)
+		if err != nil {
+			log.Fatalf("error parsing special file %s: %v", post.RootName, err)
+		}
+
+		/* Render post */
 		destDir := SITE_DIR
-		err = render(name, filepath.Join(MARKDOWN_DIR, name), destDir, cfg, includes, Tag{})
+		err = render(post, destDir, cfg, includes, Tag{})
 		if err != nil {
 			log.Fatalf("error rendering special pages: %v", err)
 		}
 	}
 
-	/* Render posts */
+	/* Render blog posts */
 	postsFilenames, err = fs.Glob(postsFS, "*.md")
 	for _, name := range postsFilenames {
+
+		/* Parse post */
+		path := filepath.Join(postsDir, name)
+		post, err := parse(path)
+		if err != nil {
+			log.Fatalf("error parsing blog post %s: %v", post.RootName, err)
+		}
+
+		/* Render post */
 		destDir := filepath.Join(SITE_DIR, "blog")
-		err = render(name, filepath.Join(postsDir, name), destDir, cfg, includes, Tag{})
+		err = render(post, destDir, cfg, includes, Tag{})
 		if err != nil {
 			log.Fatalf("error rendering posts: %v", err)
 		}
 	}
 
-	/* Render tags */
+	/* Render tags pages */
 	tagsFilenames, err := fs.Glob(tagsFS, "*.md")
 	for _, name := range tagsFilenames {
+
+		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
 		rootName := strings.Split(name, ".")[0]
-		destDir := filepath.Join(SITE_DIR, "tagged", rootName)
 		var tag Tag
 		for _, t := range cfg.Tags {
 			if t.Slug == rootName {
@@ -226,6 +246,7 @@ func format() {
 				break
 			}
 		}
+
 		if tag.Slug == "" {
 			log.Fatalf("tag not found: %s", rootName)
 		}
@@ -234,19 +255,23 @@ func format() {
 			log.Fatalf("error creating site/tagged/%s folder: %v", rootName, err)
 		}
 
-		err = render(name, filepath.Join(tagsDir, name), destDir, cfg, includes, tag)
+		/* Parse post */
+		path := filepath.Join(tagsDir, name)
+		post, err := parse(path)
+		if err != nil {
+			log.Fatalf("error parsing tags post %s: %v", rootName, err)
+		}
+
+		/* Render post */
+		destDir := filepath.Join(SITE_DIR, "tagged", rootName)
+		err = render(post, destDir, cfg, includes, tag)
 		if err != nil {
 			log.Fatalf("error rendering tags: %v", err)
 		}
 	}
 }
 
-func render(filename string, path string, destDir string, cfg Config, includes *template.Template, tag Tag) error {
-	post, err := parse(path)
-	rootName := strings.Split(filename, ".")[0]
-	if err != nil {
-		return fmt.Errorf("error parsing %s: %v", rootName, err)
-	}
+func render(post Post, destDir string, cfg Config, includes *template.Template, tag Tag) error {
 
 	/* Generate includes using page and site info*/
 	includesContent := IncludesContent{
@@ -286,14 +311,14 @@ func render(filename string, path string, destDir string, cfg Config, includes *
 	layoutTempl.Execute(&render, layoutContent)
 
 	/* Create final HTML file */
-	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", rootName)))
+	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", post.RootName)))
 	if err != nil {
-		return fmt.Errorf("error creating HTML file for %s: %v", rootName, err)
+		return fmt.Errorf("error creating HTML file for %s: %v", post.RootName, err)
 	}
 
 	_, err = io.Copy(f, &render)
 	if err != nil {
-		return fmt.Errorf("error rendering HTML for %s: %v", rootName, err)
+		return fmt.Errorf("error rendering HTML for %s: %v", post.RootName, err)
 	}
 
 	return nil
@@ -315,8 +340,19 @@ func parse(path string) (post Post, err error) {
 	}
 	post.Markdown = markdown
 	post.HTML = mdToHTML(markdown)
+	post.RootName = postRootName(path)
 
 	return post, nil
+}
+
+/*
+If post is abc.md, root name is abc.
+We assume the path always ends with '.md'
+*/
+func postRootName(path string) string {
+	_, filename := filepath.Split(path)
+	rootName := strings.Split(filename, ".")[0]
+	return rootName
 }
 
 func read(path string) ([]byte, error) {
