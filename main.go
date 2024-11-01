@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -615,23 +614,6 @@ Commands Usage:
   Usage: ez-ssg tag <tag 1> <tag2> ..
 
 `
-}
-
-func createIfNotExists(filepath string) error {
-	_, err := os.Stat(filepath)
-	if err != nil {
-		switch {
-		case errors.Is(err, os.ErrNotExist):
-			_, err := os.Create(filepath)
-			if err != nil {
-				return fmt.Errorf("error creating file %s: %v", filepath, err)
-			}
-		default:
-			return fmt.Errorf("error checking if file %s exists: %v", filepath, err)
-		}
-	}
-
-	return nil
 }
 
 func formatDate(t time.Time) string {
