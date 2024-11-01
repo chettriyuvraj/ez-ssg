@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -102,8 +101,6 @@ const (
 /* Fully rendered html for header, footer, etc */
 var includesRender map[string]template.HTML = map[string]template.HTML{}
 var specialFiles []string = []string{INDEX_FILE, BLOG_FILE}
-
-var ErrNoDataInFile = errors.New("no data in file")
 
 //go:embed includes/*
 var includesEFS embed.FS
