@@ -340,19 +340,18 @@ func parse(path string) (post Post, err error) {
 	}
 	post.Markdown = markdown
 	post.HTML = mdToHTML(markdown)
-	post.RootName = postRootName(path)
+	post.RootName = rootName(path)
 
 	return post, nil
 }
 
 /*
-If post is abc.md, root name is abc.
-We assume the path always ends with '.md'
+If path is bbc/cbc/abc.md, root name is abc.
+We assume the path always ends with file extension i.e '.md', '.json', etc.
 */
-func postRootName(path string) string {
+func rootName(path string) string {
 	_, filename := filepath.Split(path)
-	rootName := strings.Split(filename, ".")[0]
-	return rootName
+	return strings.Split(filename, ".")[0]
 }
 
 func read(path string) ([]byte, error) {
