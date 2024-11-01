@@ -33,8 +33,9 @@ type Link struct {
 	DisplayText string `json:"display_text"`
 }
 type Tag struct {
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	Slug   string `json:"slug"`
+	Name   string `json:"name"`
+	Layout string `json:"layout"`
 }
 
 type Config struct {
@@ -150,7 +151,7 @@ func format() {
 	/* Parse tags */
 	tagsDir := filepath.Join(MARKDOWN_DIR, "tags")
 	tagsFS := os.DirFS(tagsDir)
-	tagsMetadataFilenames, err := fs.Glob(tagsFS, "*.md.json")
+	tagsMetadataFilenames, err := fs.Glob(tagsFS, "*.json")
 	if err != nil {
 		log.Fatalf("error finding tags metadata files: %v", err)
 	}
@@ -265,6 +266,23 @@ func format() {
 		/* Render post */
 		destDir := filepath.Join(SITE_DIR, "tagged", rootName)
 		err = render(post, destDir, cfg, includes, tag)
+		if err != nil {
+			log.Fatalf("error rendering tags: %v", err)
+		}
+	}
+
+	for _, t := range cfg.Tags {
+		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
+		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", t.Slug), 0750); err != nil {
+			log.Fatalf("error creating site/tagged/%s folder: %v", t.Slug, err)
+		}
+
+		/* Parse tag as a post */
+		post := Post{Layout: t.Layout, RootName: t.Slug}
+
+		/* Render post */
+		destDir := filepath.Join(SITE_DIR, "tagged", t.Slug)
+		err = render(post, destDir, cfg, includes, t)
 		if err != nil {
 			log.Fatalf("error rendering tags: %v", err)
 		}
