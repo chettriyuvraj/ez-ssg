@@ -57,7 +57,6 @@ type Post struct {
 	Title       string   `json:"title"`
 	Date        string   `json:"date"`
 	Description string   `json:"description"`
-	Subtitle    string   `json:"subtitle"`
 	Tags        []string `json:"tags"`
 	RootName    string   `json:"root_name"` /* If post is abc.md, root name is abc */
 }
