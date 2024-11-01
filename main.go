@@ -116,6 +116,10 @@ var assetsEFS embed.FS
 
 func format() {
 
+	if err := reset(); err != nil {
+		log.Fatalf("error resetting site directory: %v", err)
+	}
+
 	/* Parse config */
 	f, err := os.Open(CONFIG_FILE)
 	if err != nil {
@@ -144,19 +148,22 @@ func format() {
 		if err != nil {
 			log.Fatalf("error rendering posts: %v", err)
 		}
+
 		posts = append(posts, post)
 	}
 	cfg.Posts = posts
 
 	/* Parse tags */
+	var tags []Tag
 	tagsDir := filepath.Join(MARKDOWN_DIR, "tags")
 	tagsFS := os.DirFS(tagsDir)
-	tagsMetadataFilenames, err := fs.Glob(tagsFS, "*.json")
+	tagsFilenames, err := fs.Glob(tagsFS, "*.json")
 	if err != nil {
 		log.Fatalf("error finding tags metadata files: %v", err)
 	}
-	for _, n := range tagsMetadataFilenames {
-		metadata, err := read(filepath.Join(tagsDir, n))
+	for _, name := range tagsFilenames {
+		path := filepath.Join(tagsDir, name)
+		metadata, err := read(path)
 		if err != nil {
 			log.Fatalf("error reading tags metadata: %v", err)
 		}
@@ -165,8 +172,9 @@ func format() {
 		if err = json.Unmarshal(metadata, &tag); err != nil {
 			log.Fatalf("error unmarshaling tags metadata: %v", err)
 		}
-		cfg.Tags = append(cfg.Tags, tag)
+		tags = append(tags, tag)
 	}
+	cfg.Tags = tags
 
 	/* We have to execute includes template for each page */
 	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
@@ -177,24 +185,6 @@ func format() {
 	for _, name := range includesFilenames {
 		root := strings.Split(name, "/")[1]
 		includesRender[root] = ""
-	}
-
-	/* Delete old site directory and create new one + copy over assets folder */
-	if err = os.RemoveAll(SITE_DIR); err != nil {
-		log.Fatalf("error deleting old site/ folder to create new one: %v", err)
-	}
-	if err = os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
-		log.Fatalf("error creating site/blog folder: %v", err)
-	}
-	if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
-		log.Fatalf("error creating site/tagged folder: %v", err)
-	}
-	if err = os.CopyFS(SITE_DIR, assetsEFS); err != nil {
-		log.Fatalf("error copying site/assets folder: %v", err)
-	}
-	assetsFS := os.DirFS(ASSETS_DIR)
-	if err = os.CopyFS(filepath.Join(SITE_DIR, ASSETS_DIR), assetsFS); err != nil {
-		fmt.Printf("\nerror copying your assets folder: %v", err)
 	}
 
 	/* First render special pages */
@@ -235,42 +225,6 @@ func format() {
 	}
 
 	/* Render tags pages */
-	tagsFilenames, err := fs.Glob(tagsFS, "*.md")
-	for _, name := range tagsFilenames {
-
-		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
-		rootName := strings.Split(name, ".")[0]
-		var tag Tag
-		for _, t := range cfg.Tags {
-			if t.Slug == rootName {
-				tag = t
-				break
-			}
-		}
-
-		if tag.Slug == "" {
-			log.Fatalf("tag not found: %s", rootName)
-		}
-
-		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", rootName), 0750); err != nil {
-			log.Fatalf("error creating site/tagged/%s folder: %v", rootName, err)
-		}
-
-		/* Parse post */
-		path := filepath.Join(tagsDir, name)
-		post, err := parse(path)
-		if err != nil {
-			log.Fatalf("error parsing tags post %s: %v", rootName, err)
-		}
-
-		/* Render post */
-		destDir := filepath.Join(SITE_DIR, "tagged", rootName)
-		err = render(post, destDir, cfg, includes, tag)
-		if err != nil {
-			log.Fatalf("error rendering tags: %v", err)
-		}
-	}
-
 	for _, t := range cfg.Tags {
 		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
 		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", t.Slug), 0750); err != nil {
@@ -424,4 +378,21 @@ func newCustomizedRender() *html.Renderer {
 
 func (p Post) ContainsTag(tag string) bool {
 	return slices.Contains(p.Tags, tag)
+}
+
+/* Delete old site directory and create new one + copy over assets folder */
+func reset() error {
+	if err := os.RemoveAll(SITE_DIR); err != nil {
+		return fmt.Errorf("error deleting old site/ folder to create new one: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
+		return fmt.Errorf("error creating site/blog folder: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
+		return fmt.Errorf("error creating site/tagged folder: %v", err)
+	}
+	if err := os.CopyFS(SITE_DIR, assetsEFS); err != nil {
+		return fmt.Errorf("error copying site/assets folder: %v", err)
+	}
+	return nil
 }
