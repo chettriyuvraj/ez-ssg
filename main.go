@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/ast"
@@ -33,16 +35,13 @@ type Link struct {
 }
 type Tag struct {
 	Slug   string `json:"slug"`
-	Name   string `json:"name"`
 	Layout string `json:"layout"`
 }
 
 type Config struct {
-	Domain       string          `json:"domain"`
 	Title        string          `json:"title"`
 	Description  string          `json:"description"`
 	URL          string          `json:"URL"`
-	BaseURL      string          `json:"base_URL"`
 	SpecialLinks []Link          `json:"special_links"`
 	Paths        Paths           `json:"paths"`
 	Analytics    GoogleAnalytics `json:"google_analytics"`
@@ -51,14 +50,14 @@ type Config struct {
 }
 
 type Post struct {
-	Markdown    []byte   `json:"markdown"`
-	HTML        []byte   `json:"html"`
-	Layout      string   `json:"layout"`
-	Title       string   `json:"title"`
-	Date        string   `json:"date"`
-	Description string   `json:"description"`
-	Tags        []string `json:"tags"`
-	RootName    string   `json:"root_name"` /* If post is abc.md, root name is abc */
+	Markdown    []byte   `json:"markdown,omitempty"`
+	HTML        []byte   `json:"html,omitempty"`
+	Layout      string   `json:"layout,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Date        string   `json:"date,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	RootName    string   `json:"root_name,omitempty"` /* If post is abc.md, root name is abc */
 }
 
 type IncludesContent struct {
@@ -72,10 +71,6 @@ type LayoutContent struct {
 	Site     Config
 	Post     Post
 	Tag      Tag
-}
-
-func main() {
-	format()
 }
 
 const (
@@ -96,6 +91,13 @@ const (
 	INCLUDES_FOOTERPOST = "FooterPost"
 )
 
+var commands map[string]bool = map[string]bool{
+	"init":     true,
+	"generate": true,
+	"post":     true,
+	"tag":      true,
+}
+
 /* Fully rendered html for header, footer, etc */
 var includesRender map[string]template.HTML = map[string]template.HTML{}
 var specialFiles []string = []string{INDEX_FILE, BLOG_FILE}
@@ -109,7 +111,170 @@ var layoutsEFS embed.FS
 //go:embed assets/*
 var assetsEFS embed.FS
 
-func format() {
+/* Samples */
+var sampleCfg Config = Config{
+	Title:       "chettriyuvraj",
+	Description: "Yuvraj Chettri's personal blog",
+	URL:         "https://chettriyuvraj.github.io",
+	SpecialLinks: []Link{
+		{
+			URL:         "https://www.linkedin.com/in/yuvraj-chettri/",
+			DisplayText: "Linkedin",
+		},
+		{
+			URL:         "https://www.github.com/chettriyuvraj",
+			DisplayText: "Github",
+		},
+	},
+	Paths: Paths{
+		Blog: "/blog",
+	},
+	Analytics: GoogleAnalytics{
+		TrackingID: "1234567",
+	},
+}
+
+func main() {
+	if len(os.Args) == 1 {
+		log.Fatal(help())
+	}
+
+	cmd := os.Args[1]
+	if _, exists := commands[cmd]; !exists {
+		log.Fatalf(help())
+	}
+
+	switch cmd {
+	case "init":
+		initDirs()
+	case "generate":
+		generate()
+	case "post":
+		if len(os.Args) < 3 {
+			log.Fatalf(help())
+		}
+
+		title := os.Args[2]
+		tags := []string{}
+		if len(os.Args) < 5 || os.Args[3] != "-t" {
+			initPost(title, tags)
+			return
+		}
+
+		tags = os.Args[4:]
+		initPost(title, tags)
+	case "tag":
+		if len(os.Args) < 3 {
+			log.Fatalf(help())
+		}
+
+		tags := os.Args[2:]
+		createTag(tags) // TODO: add args
+	}
+}
+
+func initDirs() error {
+	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "posts"), 0750); err != nil {
+		return fmt.Errorf("error creating markdown/posts folder: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "tags"), 0750); err != nil {
+		return fmt.Errorf("error creating markdown/tags folder: %v", err)
+	}
+
+	/* Create sample data for default files */
+	/* Sample config */
+	cfg, err := json.Marshal(sampleCfg)
+	if err != nil {
+		return fmt.Errorf("error marshaling sample config to json: %v", err)
+	}
+
+	/* Index file metadata */
+	index := Post{
+		Title:       "<enter title for homepage - this is what is displayed when you hover over your browser page tab>",
+		Description: "<enter description for home page - this is metadata and not website displayable content>",
+	}
+	indexMeta, err := json.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("error marshaling index file metadata to json: %v", err)
+	}
+
+	/* Blog file metadata */
+	blog := Post{
+		Title:       "<enter title for blog page - this is what is displayed when you hover over your browser page tab>",
+		Description: "<enter description for blog page - this is metadata and not website displayable content>",
+	}
+	blogMeta, err := json.Marshal(blog)
+	if err != nil {
+		return fmt.Errorf("error marshaling blog file metadata to json: %v", err)
+	}
+
+	/* Also called special files - filepath mapped to data */
+	defaultFilesData := map[string][]byte{
+		filepath.Join(MARKDOWN_DIR, INDEX_FILE): indexMeta,
+		filepath.Join(MARKDOWN_DIR, BLOG_FILE):  blogMeta,
+		CONFIG_FILE:                             cfg,
+	}
+
+	/* Create default files */
+	for fpath, data := range defaultFilesData {
+		if err := os.WriteFile(fpath, []byte{}, 0755); err != nil {
+			return fmt.Errorf("error creating file %s: %v", fpath, err)
+		}
+		if fpath != CONFIG_FILE {
+			if err := os.WriteFile(fmt.Sprintf("%s.json", fpath), data, 0755); err != nil {
+				return fmt.Errorf("error creating file %s: %v", fpath, err)
+			}
+		}
+	}
+
+	return nil
+
+}
+
+func initPost(title string, tags []string) error {
+	filename := strings.ReplaceAll(title, " ", "_")
+	filepath := filepath.Join(MARKDOWN_DIR, "posts", fmt.Sprintf("%s.md", filename))
+
+	meta := Post{
+		Title: title,
+		Tags:  tags,
+		Date:  formatDate(time.Now()),
+	}
+	metaRaw, err := json.Marshal(meta)
+	if err != nil {
+		return fmt.Errorf("error marshaling post metadata to json: %v", err)
+	}
+
+	if err := os.WriteFile(filepath, []byte{}, 0755); err != nil {
+		return fmt.Errorf("error creating post file %s: %v", filepath, err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s.json", filepath), metaRaw, 0755); err != nil {
+		return fmt.Errorf("error creating post metadata file: %v", err)
+	}
+
+	return nil
+}
+
+func createTag(tags []string) error {
+	for _, t := range tags {
+		slug := strings.ToLower(t)
+		filename := fmt.Sprintf("%s.json", slug)
+		filepath := filepath.Join(MARKDOWN_DIR, "tags", filename)
+
+		raw, err := json.Marshal(Tag{Slug: slug})
+		if err != nil {
+			return fmt.Errorf("error marshaling tag data to json: %v", err)
+		}
+
+		if err := os.WriteFile(filepath, raw, 0755); err != nil {
+			return fmt.Errorf("error creating tag file %s: %v", filepath, err)
+		}
+	}
+
+	return nil
+}
+
+func generate() {
 
 	if err := reset(); err != nil {
 		log.Fatalf("error resetting site directory: %v", err)
@@ -120,6 +285,7 @@ func format() {
 	if err != nil {
 		log.Fatalf("error opening config file: %v", err)
 	}
+	defer f.Close()
 
 	cfgRaw, err := io.ReadAll(f)
 	if err != nil {
@@ -191,6 +357,12 @@ func format() {
 		if err != nil {
 			log.Fatalf("error parsing special file %s: %v", post.RootName, err)
 		}
+		switch name {
+		case INDEX_FILE:
+			post.Layout = "default"
+		case BLOG_FILE:
+			post.Layout = "blog"
+		}
 
 		/* Render post */
 		destDir := SITE_DIR
@@ -210,6 +382,7 @@ func format() {
 		if err != nil {
 			log.Fatalf("error parsing blog post %s: %v", post.RootName, err)
 		}
+		post.Layout = "post"
 
 		/* Render post */
 		destDir := filepath.Join(SITE_DIR, "blog")
@@ -227,7 +400,7 @@ func format() {
 		}
 
 		/* Parse tag as a post */
-		post := Post{Layout: t.Layout, RootName: t.Slug}
+		post := Post{Layout: "tagged", RootName: t.Slug}
 
 		/* Render post */
 		destDir := filepath.Join(SITE_DIR, "tagged", t.Slug)
@@ -326,6 +499,8 @@ func read(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening metadata file: %v", err)
 	}
+	defer f.Close()
+
 	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata file: %v", err)
@@ -390,4 +565,83 @@ func reset() error {
 		return fmt.Errorf("error copying site/assets folder: %v", err)
 	}
 	return nil
+}
+
+func help() string {
+	return `Usage: ez-ssg <command> [argument]
+
+	Create a static website like chettriyuvraj.github.io in 5 minutes.
+
+	Options:
+	  -h	Specify this flag anywhere in the command and we'll show you this help screen.
+	
+	Commands:
+	  init
+	  
+	  Usage: ez-ssg init
+	  
+	  Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.
+	  
+
+	  generate
+
+	  Usage: ez-ssg generate
+
+	  Generates the static site.
+
+	  
+	  post
+
+	  Usage: ez-ssg post <title> [options]
+
+	  Creates a new post.
+
+	  Options:
+	    -t	Specify space-separated tags for the post. You must create the tag beforehand using the tag command.
+
+
+	  tag
+
+	  Usage: ez-ssg tag <tag 1> <tag2> ..
+
+	  Creates one/multiple new tag under which posts can be classified. 
+	`
+}
+
+func createIfNotExists(filepath string) error {
+	_, err := os.Stat(filepath)
+	if err != nil {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			_, err := os.Create(filepath)
+			if err != nil {
+				return fmt.Errorf("error creating file %s: %v", filepath, err)
+			}
+		default:
+			return fmt.Errorf("error checking if file %s exists: %v", filepath, err)
+		}
+	}
+
+	return nil
+}
+
+func formatDate(t time.Time) string {
+	/* Get the day of the month */
+	day := t.Day()
+
+	/* Determine the appropriate suffix (st, nd, rd, or th) */
+	var suffix string
+	switch day {
+	case 1, 21, 31:
+		suffix = "st"
+	case 2, 22:
+		suffix = "nd"
+	case 3, 23:
+		suffix = "rd"
+	default:
+		suffix = "th"
+	}
+
+	/* Format the date as "Feb 21st, 2024" */
+	return t.Format("Jan") + fmt.Sprintf(" %d%s, %d", day, suffix, t.Year())
 }

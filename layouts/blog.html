@@ -6,6 +6,7 @@
 
     {{ .Content }}
 
+    {{ $blogsPath := .Site.Paths.Blog }}
     <ul class="blog-posts">
         {{range .Site.Posts}}
         <li>
@@ -16,7 +17,7 @@
                     </time>
                 </i>
             </span>
-            <a href="/blog/{{.RootName}}.html">{{.Title}}</a>
+            <a href="{{$blogsPath}}/{{.RootName}}.html">{{.Title}}</a>
         </li>
         {{end}}
     </ul>
