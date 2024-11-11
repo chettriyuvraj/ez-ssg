@@ -181,6 +181,9 @@ func initDirs() error {
 	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "tags"), 0750); err != nil {
 		return fmt.Errorf("error creating markdown/tags folder: %v", err)
 	}
+	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "assets", "images"), 0750); err != nil {
+		return fmt.Errorf("error creating markdown/assets/images folder: %v", err)
+	}
 
 	/* Create sample data for default files */
 	/* Sample config */
@@ -284,6 +287,12 @@ func createTag(tags []string) error {
 func generate() {
 	if err := reset(); err != nil {
 		log.Fatalf("error resetting site directory: %v", err)
+	}
+
+	/* Copy over assets folder */
+	assetsFS := os.DirFS(filepath.Join(MARKDOWN_DIR, ASSETS_DIR))
+	if err := os.CopyFS(SITE_DIR, assetsFS); err != nil {
+		log.Fatalf("error copying markdown/assets folder: %v", err)
 	}
 
 	/* Parse config */
@@ -402,7 +411,7 @@ func generate() {
 	for _, t := range cfg.Tags {
 		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
 		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", t.Slug), 0750); err != nil {
-			log.Fatalf("error creating site/tagged/%s folder: %v", t.Slug, err)
+			log.Fatalf("error creating docs/tagged/%s folder: %v", t.Slug, err)
 		}
 
 		/* Parse tag as a post */
@@ -559,16 +568,16 @@ func (p Post) ContainsTag(tag string) bool {
 /* Delete old site directory and create new one + copy over assets folder */
 func reset() error {
 	if err := os.RemoveAll(SITE_DIR); err != nil {
-		return fmt.Errorf("error deleting old site/ folder to create new one: %v", err)
+		return fmt.Errorf("error deleting old docs/ folder to create new one: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
-		return fmt.Errorf("error creating site/blog folder: %v", err)
+		return fmt.Errorf("error creating docs/blog folder: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
-		return fmt.Errorf("error creating site/tagged folder: %v", err)
+		return fmt.Errorf("error creating docs/tagged folder: %v", err)
 	}
 	if err := os.CopyFS(SITE_DIR, assetsEFS); err != nil {
-		return fmt.Errorf("error copying site/assets folder: %v", err)
+		return fmt.Errorf("error copying docs/assets folder: %v", err)
 	}
 	return nil
 }
