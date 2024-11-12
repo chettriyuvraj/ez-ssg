@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"embed"
 	"encoding/json"
@@ -88,6 +89,9 @@ const (
 	INCLUDES_HEADER     = "Header"
 	INCLUDES_FOOTER     = "Footer"
 	INCLUDES_FOOTERPOST = "FooterPost"
+
+	/* Frontmatter boundary */
+	FRONTMATTER_BOUNDARY = "------------------"
 )
 
 var commands map[string]bool = map[string]bool{
@@ -644,4 +648,66 @@ func formatDate(t time.Time) string {
 
 	/* Format the date as "Feb 21st, 2024" */
 	return t.Format("Jan") + fmt.Sprintf(" %d%s, %d", day, suffix, t.Year())
+}
+
+/* We are expecting data to be in json */
+/* File will be truncated to write frontmatter */
+func addFrontmatter(filepath string, data []byte) error {
+	var buf bytes.Buffer
+
+	if _, err := buf.WriteString(FRONTMATTER_BOUNDARY + "\n"); err != nil {
+		return fmt.Errorf("error writing opening boundary to buffer: %w", err)
+	}
+	if _, err := buf.Write(data); err != nil {
+		return fmt.Errorf("error writing frontmatter to buffer: %w", err)
+	}
+	if _, err := buf.WriteString("\n" + FRONTMATTER_BOUNDARY + "\n"); err != nil {
+		return fmt.Errorf("error writing opening boundary to buffer: %w", err)
+	}
+
+	if err := os.WriteFile(filepath, buf.Bytes(), 0755); err != nil {
+		return fmt.Errorf("error writing frontmatter to file: %w", err)
+	}
+
+	return nil
+}
+
+func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
+	var bufFrontMatter, bufContent bytes.Buffer
+
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error opening file: %w", err)
+	}
+	defer f.Close()
+
+	boundaryCount := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		/* If we haven't encountered frontmatter boundary twice (open/close) we are still parsing frontmatter */
+		if string(b) == FRONTMATTER_BOUNDARY && boundaryCount < 2 {
+			boundaryCount += 1
+			continue
+		}
+
+		/* If frontmatter */
+		if boundaryCount < 2 {
+			if _, err := bufFrontMatter.Write(b); err != nil {
+				return nil, nil, fmt.Errorf("error reading frontmatter: %w", err)
+			}
+			continue
+		}
+
+		/* Content */
+		if _, err := bufContent.Write(b); err != nil {
+			return nil, nil, fmt.Errorf("error reading content: %w", err)
+		}
+		continue
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, nil, fmt.Errorf("error post reading file: %w", err)
+	}
+
+	return bufFrontMatter.Bytes(), bufContent.Bytes(), nil
 }
