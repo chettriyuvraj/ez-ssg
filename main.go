@@ -111,7 +111,7 @@ var commands map[string]string = map[string]string{
 	"init":     "Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.",
 	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
 	"post":     "Creates a new post",
-	"tag":      "Creates one/multiple new tag under which posts can be classified.",
+	"tag":      "Creates one/multiple new tags under which posts can be classified.",
 }
 
 /* Fully rendered html for header, footer, etc */
@@ -884,9 +884,11 @@ func displayCmdInstruction(v *gocui.View, cmd string) error {
 	// Print command instruction
 	cmdInstruction := commands[cmd]
 	if cmdInstruction == "" {
-		return fmt.Errorf("invalid command string: %s", cmd)
+		return fmt.Errorf("invalid command string")
 	}
-	v.Write([]byte(cmdInstruction))
+	if _, err := v.Write([]byte(cmdInstruction)); err != nil {
+		return fmt.Errorf("error writing command instruction for %s cmd: %w", cmd, err)
+	}
 
 	return nil
 }
@@ -980,7 +982,6 @@ func interactive(logger *log.Logger) {
 	defer g.Close()
 
 	g.Cursor = true
-	g.Mouse = true
 	g.SetManagerFunc(layout)
 
 	if err := keybindings(g); err != nil {
