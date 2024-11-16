@@ -157,6 +157,8 @@ func main() {
 		interactive(logger)
 	}
 
+	var err error
+
 	cmd := os.Args[1]
 	if _, exists := commands[cmd]; !exists {
 		logger.Fatalf(help())
@@ -164,9 +166,9 @@ func main() {
 
 	switch cmd {
 	case "init":
-		initDirs()
+		err = initDirs()
 	case "generate":
-		generate()
+		err = generate()
 	case "post":
 		if len(os.Args) < 3 {
 			logger.Fatalf(help())
@@ -180,33 +182,37 @@ func main() {
 		}
 
 		tags = os.Args[4:]
-		initPost(title, tags)
+		err = initPost(title, tags)
 	case "tag":
 		if len(os.Args) < 3 {
 			logger.Fatalf(help())
 		}
 
 		tags := os.Args[2:]
-		createTag(tags) // TODO: add args
+		err = createTag(tags) // TODO: add args
+	}
+
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
 func initDirs() error {
 	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "posts"), 0750); err != nil {
-		return fmt.Errorf("error creating markdown/posts folder: %v", err)
+		return fmt.Errorf("error creating markdown/posts folder: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "tags"), 0750); err != nil {
-		return fmt.Errorf("error creating markdown/tags folder: %v", err)
+		return fmt.Errorf("error creating markdown/tags folder: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "assets", "images"), 0750); err != nil {
-		return fmt.Errorf("error creating markdown/assets/images folder: %v", err)
+		return fmt.Errorf("error creating markdown/assets/images folder: %w", err)
 	}
 
 	/* Create sample data for default files */
 	/* Sample config */
 	cfg, err := json.MarshalIndent(sampleCfg, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error marshaling sample config to json: %v", err)
+		return fmt.Errorf("error marshaling sample config to json: %w", err)
 	}
 
 	/* Index file metadata */
@@ -216,7 +222,7 @@ func initDirs() error {
 	}
 	indexMeta, err := json.MarshalIndent(index, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error marshaling index file metadata to json: %v", err)
+		return fmt.Errorf("error marshaling index file metadata to json: %w", err)
 	}
 
 	/* Blog file metadata */
@@ -226,26 +232,26 @@ func initDirs() error {
 	}
 	blogMeta, err := json.MarshalIndent(blog, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error marshaling blog file metadata to json: %v", err)
+		return fmt.Errorf("error marshaling blog file metadata to json: %w", err)
 	}
 
 	/* Create default files */
 	indexFilepath := filepath.Join(MARKDOWN_DIR, INDEX_FILE)
 	if err := addFrontmatter(indexFilepath, indexMeta); err != nil {
-		return fmt.Errorf("error creating file %s: %v", indexFilepath, err)
+		return fmt.Errorf("error creating file %s: %w", indexFilepath, err)
 	}
 
 	blogFilepath := filepath.Join(MARKDOWN_DIR, BLOG_FILE)
 	if err := addFrontmatter(blogFilepath, blogMeta); err != nil {
-		return fmt.Errorf("error creating file %s: %v", blogFilepath, err)
+		return fmt.Errorf("error creating file %s: %w", blogFilepath, err)
 	}
 
 	configFilepath := CONFIG_FILE
 	if err := os.WriteFile(configFilepath, []byte{}, 0755); err != nil {
-		return fmt.Errorf("error creating file %s: %v", configFilepath, err)
+		return fmt.Errorf("error creating file %s: %w", configFilepath, err)
 	}
 	if err := os.WriteFile(configFilepath, cfg, 0755); err != nil {
-		return fmt.Errorf("error creating file %s: %v", configFilepath, err)
+		return fmt.Errorf("error creating file %s: %w", configFilepath, err)
 	}
 
 	return nil
@@ -262,11 +268,11 @@ func initPost(title string, tags []string) error {
 	}
 	metaRaw, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error marshaling post metadata to json: %v", err)
+		return fmt.Errorf("error marshaling post metadata to json: %w", err)
 	}
 
 	if err := addFrontmatter(filepath, metaRaw); err != nil {
-		return fmt.Errorf("error creating post file %s: %v", filepath, err)
+		return fmt.Errorf("error creating post file %s: %w", filepath, err)
 	}
 
 	return nil
@@ -280,44 +286,44 @@ func createTag(tags []string) error {
 
 		raw, err := json.MarshalIndent(Tag{Slug: slug}, "", "  ")
 		if err != nil {
-			return fmt.Errorf("error marshaling tag data to json: %v", err)
+			return fmt.Errorf("error marshaling tag data to json: %w", err)
 		}
 
 		if err := os.WriteFile(filepath, raw, 0755); err != nil {
-			return fmt.Errorf("error creating tag file %s: %v", filepath, err)
+			return fmt.Errorf("error creating tag file %s: %w", filepath, err)
 		}
 	}
 
 	return nil
 }
 
-func generate() {
+func generate() error {
 	if err := reset(); err != nil {
-		log.Fatalf("error resetting site directory: %v", err)
+		return fmt.Errorf("error resetting site directory: %w", err)
 	}
 
 	/* Copy over assets folder */
 	assetsFS := os.DirFS(filepath.Join(MARKDOWN_DIR, ASSETS_DIR))
 	if err := os.CopyFS(SITE_DIR, assetsFS); err != nil {
-		log.Fatalf("error copying markdown/assets folder: %v", err)
+		return fmt.Errorf("error copying markdown/assets folder: %w", err)
 	}
 
 	/* Parse config */
 	f, err := os.Open(CONFIG_FILE)
 	if err != nil {
-		log.Fatalf("error opening config file: %v", err)
+		return fmt.Errorf("error opening config file: %w", err)
 	}
 	defer f.Close()
 
 	cfgRaw, err := io.ReadAll(f)
 	if err != nil {
-		log.Fatalf("error reading config file: %v", err)
+		return fmt.Errorf("error reading config file: %w", err)
 	}
 
 	var cfg Config
 	err = json.Unmarshal(cfgRaw, &cfg)
 	if err != nil {
-		log.Fatalf("error unmarshaling config file: %v", err)
+		return fmt.Errorf("error unmarshaling config file: %w", err)
 	}
 
 	/* Parse posts */
@@ -329,7 +335,7 @@ func generate() {
 		path := filepath.Join(postsDir, name)
 		post, err := parse(path)
 		if err != nil {
-			log.Fatalf("error rendering posts: %v", err)
+			return fmt.Errorf("error rendering posts: %w", err)
 		}
 
 		posts = append(posts, post)
@@ -342,18 +348,18 @@ func generate() {
 	tagsFS := os.DirFS(tagsDir)
 	tagsFilenames, err := fs.Glob(tagsFS, "*.json")
 	if err != nil {
-		log.Fatalf("error finding tags metadata files: %v", err)
+		return fmt.Errorf("error finding tags metadata files: %w", err)
 	}
 	for _, name := range tagsFilenames {
 		path := filepath.Join(tagsDir, name)
 		metadata, err := read(path)
 		if err != nil {
-			log.Fatalf("error reading tags metadata: %v", err)
+			return fmt.Errorf("error reading tags metadata: %w", err)
 		}
 
 		var tag Tag
 		if err = json.Unmarshal(metadata, &tag); err != nil {
-			log.Fatalf("error unmarshaling tags metadata: %v", err)
+			return fmt.Errorf("error unmarshaling tags metadata: %w", err)
 		}
 		tags = append(tags, tag)
 	}
@@ -362,7 +368,7 @@ func generate() {
 	/* We have to execute includes template for each page */
 	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
 	if err != nil {
-		log.Fatalf("error finding includes filenames: %s", err)
+		return fmt.Errorf("error finding includes filenames: %s", err)
 	}
 	includes := template.Must(template.ParseFS(includesEFS, includesFilenames...))
 	for _, name := range includesFilenames {
@@ -377,7 +383,7 @@ func generate() {
 		path := filepath.Join(MARKDOWN_DIR, name)
 		post, err := parse(path)
 		if err != nil {
-			log.Fatalf("error parsing special file %s: %v", post.RootName, err)
+			return fmt.Errorf("error parsing special file %s: %w", post.RootName, err)
 		}
 		switch name {
 		case INDEX_FILE:
@@ -390,7 +396,7 @@ func generate() {
 		destDir := SITE_DIR
 		err = render(post, destDir, cfg, includes, Tag{})
 		if err != nil {
-			log.Fatalf("error rendering special pages: %v", err)
+			return fmt.Errorf("error rendering special pages: %w", err)
 		}
 	}
 
@@ -402,7 +408,7 @@ func generate() {
 		path := filepath.Join(postsDir, name)
 		post, err := parse(path)
 		if err != nil {
-			log.Fatalf("error parsing blog post %s: %v", post.RootName, err)
+			return fmt.Errorf("error parsing blog post %s: %w", post.RootName, err)
 		}
 		post.Layout = "post"
 
@@ -410,7 +416,7 @@ func generate() {
 		destDir := filepath.Join(SITE_DIR, "blog")
 		err = render(post, destDir, cfg, includes, Tag{})
 		if err != nil {
-			log.Fatalf("error rendering posts: %v", err)
+			return fmt.Errorf("error rendering posts: %w", err)
 		}
 	}
 
@@ -418,7 +424,7 @@ func generate() {
 	for _, t := range cfg.Tags {
 		/* Each tag page is stored in tagged/<tag>/<tag_page>.html - first create this directory tree + file */
 		if err = os.MkdirAll(filepath.Join(SITE_DIR, "tagged", t.Slug), 0750); err != nil {
-			log.Fatalf("error creating docs/tagged/%s folder: %v", t.Slug, err)
+			return fmt.Errorf("error creating docs/tagged/%s folder: %w", t.Slug, err)
 		}
 
 		/* Parse tag as a post */
@@ -428,9 +434,11 @@ func generate() {
 		destDir := filepath.Join(SITE_DIR, "tagged", t.Slug)
 		err = render(post, destDir, cfg, includes, t)
 		if err != nil {
-			log.Fatalf("error rendering tags: %v", err)
+			return fmt.Errorf("error rendering tags: %w", err)
 		}
 	}
+
+	return nil
 }
 
 func render(post Post, destDir string, cfg Config, includes *template.Template, tag Tag) error {
@@ -467,7 +475,7 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 	layoutTempl, err := template.ParseFS(layoutsEFS, fmt.Sprintf("layouts/%s.html", layoutFilename))
 
 	if err != nil {
-		return fmt.Errorf("error parsing layout template file %s: %v", layoutFilename, err)
+		return fmt.Errorf("error parsing layout template file %s: %w", layoutFilename, err)
 	}
 	render := bytes.Buffer{}
 	layoutTempl.Execute(&render, layoutContent)
@@ -475,12 +483,12 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 	/* Create final HTML file */
 	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", post.RootName)))
 	if err != nil {
-		return fmt.Errorf("error creating HTML file for %s: %v", post.RootName, err)
+		return fmt.Errorf("error creating HTML file for %s: %w", post.RootName, err)
 	}
 
 	_, err = io.Copy(f, &render)
 	if err != nil {
-		return fmt.Errorf("error rendering HTML for %s: %v", post.RootName, err)
+		return fmt.Errorf("error rendering HTML for %s: %w", post.RootName, err)
 	}
 
 	return nil
@@ -489,12 +497,12 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 func parse(path string) (post Post, err error) {
 	metadata, markdown, err := readFull(path)
 	if err != nil {
-		return post, fmt.Errorf("error reading post: %s, %v", path, err)
+		return post, fmt.Errorf("error reading post: %s, %w", path, err)
 	}
 
 	err = json.Unmarshal(metadata, &post)
 	if err != nil {
-		return post, fmt.Errorf("error unmarshaling metadata: %v", err)
+		return post, fmt.Errorf("error unmarshaling metadata: %w", err)
 	}
 
 	post.Markdown = markdown
@@ -516,13 +524,13 @@ func rootName(path string) string {
 func read(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("error opening metadata file: %v", err)
+		return nil, fmt.Errorf("error opening metadata file: %w", err)
 	}
 	defer f.Close()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("error reading metadata file: %v", err)
+		return nil, fmt.Errorf("error reading metadata file: %w", err)
 	}
 
 	return b, nil
@@ -572,16 +580,16 @@ func (p Post) ContainsTag(tag string) bool {
 /* Delete old site directory and create new one + copy over assets folder */
 func reset() error {
 	if err := os.RemoveAll(SITE_DIR); err != nil {
-		return fmt.Errorf("error deleting old docs/ folder to create new one: %v", err)
+		return fmt.Errorf("error deleting old docs/ folder to create new one: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(SITE_DIR, "blog"), 0750); err != nil {
-		return fmt.Errorf("error creating docs/blog folder: %v", err)
+		return fmt.Errorf("error creating docs/blog folder: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
-		return fmt.Errorf("error creating docs/tagged folder: %v", err)
+		return fmt.Errorf("error creating docs/tagged folder: %w", err)
 	}
 	if err := os.CopyFS(SITE_DIR, assetsEFS); err != nil {
-		return fmt.Errorf("error copying docs/assets folder: %v", err)
+		return fmt.Errorf("error copying docs/assets folder: %w", err)
 	}
 	return nil
 }
@@ -716,6 +724,13 @@ func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
 }
 
 func cursorDown(g *gocui.Gui, v *gocui.View) error {
+	// Clear any messages from previous command execution
+	msgView, err := g.View("msg")
+	if err != nil {
+		return fmt.Errorf("error checking views: %w", err)
+	}
+	msgView.Clear()
+
 	// Check if next line is a command
 	cx, cy := v.Cursor()
 	nextCmd, err := v.Line(cy + 1)
@@ -757,6 +772,13 @@ func cursorDown(g *gocui.Gui, v *gocui.View) error {
 }
 
 func cursorUp(g *gocui.Gui, v *gocui.View) error {
+	// Clear any messages from previous command execution
+	msgView, err := g.View("msg")
+	if err != nil {
+		return fmt.Errorf("error checking views: %w", err)
+	}
+	msgView.Clear()
+
 	if v != nil {
 		ox, oy := v.Origin()
 		cx, cy := v.Cursor()
@@ -802,7 +824,7 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
-func execCurrentCmd(g *gocui.Gui, v *gocui.View) error {
+func execCurCmd(g *gocui.Gui, v *gocui.View) error {
 	var cmd string
 	var err error
 
@@ -812,18 +834,19 @@ func execCurrentCmd(g *gocui.Gui, v *gocui.View) error {
 		cmd = ""
 	}
 
-	// Set view to main screen
-	mainView, err := g.SetCurrentView("main")
+	// Exec command instruction
+	msg := exec(cmd)
+
+	// Set view to msg screen
+	msgView, err := g.SetCurrentView("msg")
 	if err != nil {
 		return err
 	}
 
-	// Exec command instruction
-
-	// Display command instruction
-	err = displayCmdInstruction(mainView, cmd)
-	if err != nil {
-		return err
+	// Display exec result
+	msgView.Clear()
+	if _, err := msgView.Write([]byte(msg)); err != nil {
+		return fmt.Errorf("error writing command result message: %w", err)
 	}
 
 	// Set view back to side screen
@@ -832,6 +855,27 @@ func execCurrentCmd(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	return nil
+}
+
+func exec(cmd string) (msg string) {
+	var err error
+	switch cmd {
+	case "init":
+		err = initDirs()
+	case "generate":
+		err = generate()
+		// case "post":
+
+		// case "tag":
+	default:
+		err = fmt.Errorf("command does not exist: %s", cmd)
+	}
+
+	if err != nil {
+		return fmt.Sprintf("error executing %s command: %s", cmd, err.Error())
+	}
+
+	return "successfully executed"
 }
 
 func displayCmdInstruction(v *gocui.View, cmd string) error {
@@ -862,9 +906,9 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
 	}
-	// if err := g.SetKeybinding("side", gocui.KeyEnter, gocui.ModNone, execCurCommand); err != nil {
-	// 	return err
-	// }
+	if err := g.SetKeybinding("side", gocui.KeyEnter, gocui.ModNone, execCurCmd); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -874,7 +918,7 @@ func layout(g *gocui.Gui) error {
 	var v *gocui.View
 	var err error
 
-	if v, err = g.SetView("main", (maxX/2)-27, 0, maxX, maxY); err != nil {
+	if v, err = g.SetView("main", (maxX/2)-27, 0, (maxX/2)+30, (maxY / 2)); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -903,6 +947,28 @@ func layout(g *gocui.Gui) error {
 		return err
 	}
 
+	if v, err = g.SetView("input", (maxX/2)-10, 5, (maxX/2)+15, (maxY / 2)); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Highlight = true
+		v.SelBgColor = gocui.ColorGreen
+		v.SelFgColor = gocui.ColorBlack
+		v.Editable = true
+		v.Frame = false
+	}
+
+	if v, err = g.SetView("msg", (maxX/2)-10, 5, (maxX/2)+15, (maxY / 2)); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Highlight = true
+		v.SelBgColor = gocui.ColorGreen
+		v.SelFgColor = gocui.ColorBlack
+		v.Editable = true
+		v.Frame = false
+	}
+
 	return nil
 }
 
@@ -914,6 +980,7 @@ func interactive(logger *log.Logger) {
 	defer g.Close()
 
 	g.Cursor = true
+	g.Mouse = true
 	g.SetManagerFunc(layout)
 
 	if err := keybindings(g); err != nil {
