@@ -20,6 +20,7 @@ import (
 	"github.com/gomarkdown/markdown/ast"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
+	"github.com/jroimartin/gocui"
 )
 
 type Paths struct {
@@ -94,11 +95,23 @@ const (
 	FRONTMATTER_BOUNDARY = "------------------"
 )
 
-var commands map[string]bool = map[string]bool{
-	"init":     true,
-	"generate": true,
-	"post":     true,
-	"tag":      true,
+// type Command struct {
+// 	instruction string
+// 	exec        func() error
+// }
+
+// var commands map[string]Command = map[string]Command{
+
+//		"init":     Command{exec: initDirs, instruction: "Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app."},
+//		"generate": Command{exec: generate, instruction: "Generates the static site. Use it when you have all the content ready to generate HTML."},
+//		"post":     Command{exec: initPost, instruction: "Creates a new post"},
+//		"tag":      Command{exec: createTag, instruction: "Creates one/multiple new tag under which posts can be classified."},
+//	}
+var commands map[string]string = map[string]string{
+	"init":     "Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.",
+	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
+	"post":     "Creates a new post",
+	"tag":      "Creates one/multiple new tag under which posts can be classified.",
 }
 
 /* Fully rendered html for header, footer, etc */
@@ -141,7 +154,7 @@ func main() {
 	logger := log.New(os.Stderr, "", 0)
 
 	if len(os.Args) == 1 {
-		logger.Fatal(help())
+		interactive(logger)
 	}
 
 	cmd := os.Args[1]
@@ -700,4 +713,214 @@ func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
 	}
 
 	return bufFrontMatter.Bytes(), bufContent.Bytes(), nil
+}
+
+func cursorDown(g *gocui.Gui, v *gocui.View) error {
+	// Check if next line is a command
+	cx, cy := v.Cursor()
+	nextCmd, err := v.Line(cy + 1)
+	if err != nil {
+		return fmt.Errorf("error checking for existence of next line: %w", err)
+	}
+
+	// If nothing in the next line don't move down
+	if nextCmd == "" {
+		return nil
+	}
+
+	// Set cursor to next pos
+	if v != nil {
+		if err := v.SetCursor(cx, cy+1); err != nil {
+			ox, oy := v.Origin()
+			if err := v.SetOrigin(ox, oy+1); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Change view to main screen
+	mainView, err := g.SetCurrentView("main")
+	if err != nil {
+		return err
+	}
+
+	// Since we already have the command, simply display it on main screen
+	if err := displayCmdInstruction(mainView, nextCmd); err != nil {
+		return err
+	}
+
+	// Set view back to side screen
+	if _, err := g.SetCurrentView("side"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func cursorUp(g *gocui.Gui, v *gocui.View) error {
+	if v != nil {
+		ox, oy := v.Origin()
+		cx, cy := v.Cursor()
+		if err := v.SetCursor(cx, cy-1); err != nil && oy > 0 {
+			if err := v.SetOrigin(ox, oy-1); err != nil {
+				return err
+			}
+		}
+	}
+	if err := SetCurrentCmdInstruction(g, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
+	var cmd string
+	var err error
+
+	// Grab current highlighted line
+	_, cy := v.Cursor()
+	if cmd, err = v.Line(cy); err != nil {
+		cmd = ""
+	}
+
+	// Set view to main screen
+	mainView, err := g.SetCurrentView("main")
+	if err != nil {
+		return err
+	}
+
+	// Display command instruction
+	err = displayCmdInstruction(mainView, cmd)
+	if err != nil {
+		return err
+	}
+
+	// Set view back to side screen
+	if _, err := g.SetCurrentView("side"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func execCurrentCmd(g *gocui.Gui, v *gocui.View) error {
+	var cmd string
+	var err error
+
+	// Grab current highlighted line
+	_, cy := v.Cursor()
+	if cmd, err = v.Line(cy); err != nil {
+		cmd = ""
+	}
+
+	// Set view to main screen
+	mainView, err := g.SetCurrentView("main")
+	if err != nil {
+		return err
+	}
+
+	// Exec command instruction
+
+	// Display command instruction
+	err = displayCmdInstruction(mainView, cmd)
+	if err != nil {
+		return err
+	}
+
+	// Set view back to side screen
+	if _, err := g.SetCurrentView("side"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func displayCmdInstruction(v *gocui.View, cmd string) error {
+	v.Clear()
+
+	// Print command instruction
+	cmdInstruction := commands[cmd]
+	if cmdInstruction == "" {
+		return fmt.Errorf("invalid command string: %s", cmd)
+	}
+	v.Write([]byte(cmdInstruction))
+
+	return nil
+}
+
+func quit(g *gocui.Gui, v *gocui.View) error {
+	return gocui.ErrQuit
+}
+
+func keybindings(g *gocui.Gui) error {
+
+	if err := g.SetKeybinding("side", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("side", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
+		return err
+	}
+	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+		return err
+	}
+	// if err := g.SetKeybinding("side", gocui.KeyEnter, gocui.ModNone, execCurCommand); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func layout(g *gocui.Gui) error {
+	maxX, maxY := g.Size()
+	var v *gocui.View
+	var err error
+
+	if v, err = g.SetView("main", (maxX/2)-27, 0, maxX, maxY); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Editable = true
+		v.Wrap = true
+		v.Frame = false
+	}
+
+	if v, err = g.SetView("side", -1, -1, 30, maxY); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Highlight = true
+		v.SelBgColor = gocui.ColorGreen
+		v.SelFgColor = gocui.ColorBlack
+		for cmd := range commands {
+			v.Write([]byte(cmd + "\n"))
+		}
+
+		if _, err := g.SetCurrentView("side"); err != nil {
+			return err
+		}
+	}
+
+	if err := SetCurrentCmdInstruction(g, v); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func interactive(logger *log.Logger) {
+	g, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
+		logger.Panicln(err)
+	}
+	defer g.Close()
+
+	g.Cursor = true
+	g.SetManagerFunc(layout)
+
+	if err := keybindings(g); err != nil {
+		logger.Panicln(err)
+	}
+
+	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
+		logger.Panicln(err)
+	}
 }
