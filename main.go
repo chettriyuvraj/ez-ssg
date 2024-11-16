@@ -56,7 +56,7 @@ type Post struct {
 	Title       string   `json:"title,omitempty"`
 	Date        string   `json:"date,omitempty"`
 	Description string   `json:"description,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
+	Tags        []string `json:"tags"`
 	RootName    string   `json:"root_name,omitempty"` /* If post is abc.md, root name is abc */
 }
 
@@ -218,18 +218,12 @@ func initDirs() error {
 
 	/* Create default files */
 	indexFilepath := filepath.Join(MARKDOWN_DIR, INDEX_FILE)
-	if err := os.WriteFile(indexFilepath, []byte{}, 0755); err != nil {
-		return fmt.Errorf("error creating file %s: %v", indexFilepath, err)
-	}
-	if err := os.WriteFile(fmt.Sprintf("%s.json", indexFilepath), indexMeta, 0755); err != nil {
+	if err := addFrontmatter(indexFilepath, indexMeta); err != nil {
 		return fmt.Errorf("error creating file %s: %v", indexFilepath, err)
 	}
 
 	blogFilepath := filepath.Join(MARKDOWN_DIR, BLOG_FILE)
-	if err := os.WriteFile(blogFilepath, []byte{}, 0755); err != nil {
-		return fmt.Errorf("error creating file %s: %v", blogFilepath, err)
-	}
-	if err := os.WriteFile(fmt.Sprintf("%s.json", blogFilepath), blogMeta, 0755); err != nil {
+	if err := addFrontmatter(blogFilepath, blogMeta); err != nil {
 		return fmt.Errorf("error creating file %s: %v", blogFilepath, err)
 	}
 
@@ -242,7 +236,6 @@ func initDirs() error {
 	}
 
 	return nil
-
 }
 
 func initPost(title string, tags []string) error {
@@ -259,11 +252,8 @@ func initPost(title string, tags []string) error {
 		return fmt.Errorf("error marshaling post metadata to json: %v", err)
 	}
 
-	if err := os.WriteFile(filepath, []byte{}, 0755); err != nil {
+	if err := addFrontmatter(filepath, metaRaw); err != nil {
 		return fmt.Errorf("error creating post file %s: %v", filepath, err)
-	}
-	if err := os.WriteFile(fmt.Sprintf("%s.json", filepath), metaRaw, 0755); err != nil {
-		return fmt.Errorf("error creating post metadata file: %v", err)
 	}
 
 	return nil
@@ -484,19 +474,16 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 }
 
 func parse(path string) (post Post, err error) {
-	metadata, err := read(fmt.Sprintf("%s.json", path))
+	metadata, markdown, err := readFull(path)
 	if err != nil {
-		return post, fmt.Errorf("error reading metadata: %v", err)
+		return post, fmt.Errorf("error reading post: %s, %v", path, err)
 	}
+
 	err = json.Unmarshal(metadata, &post)
 	if err != nil {
 		return post, fmt.Errorf("error unmarshaling metadata: %v", err)
 	}
 
-	markdown, err := read(path)
-	if err != nil {
-		return post, fmt.Errorf("error reading post markdown: %v", err)
-	}
 	post.Markdown = markdown
 	post.HTML = mdToHTML(markdown)
 	post.RootName = rootName(path)
@@ -701,6 +688,9 @@ func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
 
 		/* Content */
 		if _, err := bufContent.Write(b); err != nil {
+			return nil, nil, fmt.Errorf("error reading content: %w", err)
+		}
+		if _, err := bufContent.Write([]byte("\n")); err != nil {
 			return nil, nil, fmt.Errorf("error reading content: %w", err)
 		}
 		continue
