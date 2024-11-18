@@ -957,13 +957,31 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func setCurrentViewOnTop(g *gocui.Gui, name string) (*gocui.View, error) {
-	if _, err := g.SetCurrentView(name); err != nil {
+func setCurrentViewOnTop(g *gocui.Gui, name string, highlight, background bool) (*gocui.View, error) {
+	var v *gocui.View
+	var err error
+
+	if v, err = g.SetCurrentView(name); err != nil {
 		return nil, err
+	}
+	if highlight {
+		v.Highlight = true
+	}
+	if background {
+		v.BgColor = gocui.ColorGreen
 	}
 	return g.SetViewOnTop(name)
 }
 
+func removeBgColor(v *gocui.View) {
+	v.BgColor = gocui.ColorDefault
+}
+
+func removeHighlight(v *gocui.View) {
+	v.Highlight = false
+}
+
+// TODO: Skip input2 i.e. title input if "tags" cmd
 func nextView(g *gocui.Gui, v *gocui.View) error {
 	// Check current command
 	sideView, err := g.View("side")
@@ -981,14 +999,24 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 		return nil
 	}
 
+	// Set current view on top and set background color
 	nextIndex := (active + 1) % len(viewArr)
-	name := viewArr[nextIndex]
-
-	if _, err := setCurrentViewOnTop(g, name); err != nil {
+	curViewName := viewArr[nextIndex]
+	var toColorBackground, toHighlight bool
+	if curViewName == "side" {
+		toHighlight = true
+	} else {
+		toColorBackground = true
+	}
+	if _, err := setCurrentViewOnTop(g, curViewName, toHighlight, toColorBackground); err != nil {
 		return err
 	}
-
 	active = nextIndex
+
+	// Remove background and highlight from previous view
+	removeBgColor(v)
+	removeHighlight(v)
+
 	return nil
 }
 
