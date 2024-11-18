@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -149,6 +150,12 @@ var sampleCfg Config = Config{
 		TrackingID: "1234567",
 	},
 }
+
+/* GUI Related variables */
+var (
+	viewArr = []string{"side", "input1", "input2"}
+	active  = 0
+)
 
 func main() {
 	logger := log.New(os.Stderr, "", 0)
@@ -804,8 +811,8 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 		cmd = ""
 	}
 
-	// Set view to main screen
-	mainView, err := g.SetCurrentView("main")
+	// Get main view
+	mainView, err := g.View("main")
 	if err != nil {
 		return err
 	}
@@ -816,9 +823,62 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 
-	// Set view back to side screen
-	if _, err := g.SetCurrentView("side"); err != nil {
+	// Get input views
+	inp1View, err := g.View("input1")
+	if err != nil {
+		// View not yet defined
+		if errors.Is(err, gocui.ErrUnknownView) {
+			return nil
+		}
 		return err
+	}
+
+	inp2View, err := g.View("input2")
+	if err != nil {
+		// View not yet defined
+		if errors.Is(err, gocui.ErrUnknownView) {
+			return nil
+		}
+		return err
+	}
+
+	// Show inputs according to the command
+	switch cmd {
+	case "init", "generate":
+		inp1View.Frame = false
+		inp2View.Frame = false
+		inp1View.Clear()
+		inp2View.Clear()
+
+	case "post":
+		inp1View.Frame = true
+		inp2View.Frame = true
+		// inp1View.Editable = true
+		// inp2View.Editable = true
+		// inp1View.Clear()
+		// inp2View.Clear()
+		// if _, err := inp1View.Write([]byte("<enter post title>")); err != nil {
+		// 	return fmt.Errorf("unable to show title input view: %w", err)
+		// }
+		// if _, err := inp2View.Write([]byte("<enter any tags for post - space separated>")); err != nil {
+		// 	return fmt.Errorf("unable to show tag input view: %w", err)
+		// }
+	case "tag":
+		inp1View.Frame = true
+		inp2View.Frame = false
+		// inp1View.Editable = true
+		// inp2View.Editable = true
+		// inp1View.Clear()
+		// inp2View.Clear()
+		// if _, err := inp1View.Write([]byte("<enter the tags you want to create - space separated>")); err != nil {
+		// 	return fmt.Errorf("unable to show tag input view: %w", err)
+		// }
+		// if _, err := inp2View.Write([]byte("-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-")); err != nil {
+		// 	return fmt.Errorf("unable to show tag input view: %w", err)
+		// }
+
+	default:
+		panic("this command does not exist")
 	}
 
 	return nil
@@ -897,6 +957,41 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
+func setCurrentViewOnTop(g *gocui.Gui, name string) (*gocui.View, error) {
+	if _, err := g.SetCurrentView(name); err != nil {
+		return nil, err
+	}
+	return g.SetViewOnTop(name)
+}
+
+func nextView(g *gocui.Gui, v *gocui.View) error {
+	// Check current command
+	sideView, err := g.View("side")
+	if err != nil {
+		return fmt.Errorf("error checking side view: %w", err)
+	}
+	_, cy := sideView.Cursor()
+	cmd, err := sideView.Line(cy)
+	if err != nil {
+		return fmt.Errorf("error checking current command: %w", err)
+	}
+
+	// No view switching for these commands
+	if cmd == "generate" || cmd == "init" {
+		return nil
+	}
+
+	nextIndex := (active + 1) % len(viewArr)
+	name := viewArr[nextIndex]
+
+	if _, err := setCurrentViewOnTop(g, name); err != nil {
+		return err
+	}
+
+	active = nextIndex
+	return nil
+}
+
 func keybindings(g *gocui.Gui) error {
 
 	if err := g.SetKeybinding("side", gocui.KeyArrowDown, gocui.ModNone, cursorDown); err != nil {
@@ -905,10 +1000,13 @@ func keybindings(g *gocui.Gui) error {
 	if err := g.SetKeybinding("side", gocui.KeyArrowUp, gocui.ModNone, cursorUp); err != nil {
 		return err
 	}
+	if err := g.SetKeybinding("side", gocui.KeyEnter, gocui.ModNone, execCurCmd); err != nil {
+		return err
+	}
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		return err
 	}
-	if err := g.SetKeybinding("side", gocui.KeyEnter, gocui.ModNone, execCurCmd); err != nil {
+	if err := g.SetKeybinding("", gocui.KeyTab, gocui.ModNone, nextView); err != nil {
 		return err
 	}
 
@@ -920,11 +1018,11 @@ func layout(g *gocui.Gui) error {
 	var v *gocui.View
 	var err error
 
-	if v, err = g.SetView("main", (maxX/2)-27, 0, (maxX/2)+30, (maxY / 2)); err != nil {
+	if v, err = g.SetView("main", (maxX/2)-27, 0, (maxX/2)+30, (maxY / 8)); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Editable = true
+		v.Editable = false
 		v.Wrap = true
 		v.Frame = false
 	}
@@ -949,7 +1047,7 @@ func layout(g *gocui.Gui) error {
 		return err
 	}
 
-	if v, err = g.SetView("input", (maxX/2)-10, 5, (maxX/2)+15, (maxY / 2)); err != nil {
+	if v, err = g.SetView("msg", (maxX / 3), 10, (maxX/2)+15, (maxY/5)+5); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -960,15 +1058,23 @@ func layout(g *gocui.Gui) error {
 		v.Frame = false
 	}
 
-	if v, err = g.SetView("msg", (maxX/2)-10, 5, (maxX/2)+15, (maxY / 2)); err != nil {
+	if v, err := g.SetView("input1", maxX/3+5, 15, maxX/2+10, maxY/3+5); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Highlight = true
-		v.SelBgColor = gocui.ColorGreen
-		v.SelFgColor = gocui.ColorBlack
+		v.Wrap = true
+		v.Autoscroll = true
+		v.Title = "Tags"
 		v.Editable = true
-		v.Frame = false
+	}
+	if v, err := g.SetView("input2", maxX/3+5, 20, maxX/2+10, maxY/3+10); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+		v.Wrap = true
+		v.Autoscroll = true
+		v.Editable = true
+		v.Title = "Title"
 	}
 
 	return nil
@@ -981,7 +1087,6 @@ func interactive(logger *log.Logger) {
 	}
 	defer g.Close()
 
-	g.Cursor = true
 	g.SetManagerFunc(layout)
 
 	if err := keybindings(g); err != nil {
