@@ -265,6 +265,10 @@ func initDirs() error {
 }
 
 func initPost(title string, tags []string) error {
+	if title == "" {
+		return fmt.Errorf("no title provided")
+	}
+
 	filename := strings.ReplaceAll(title, " ", "_")
 	filepath := filepath.Join(MARKDOWN_DIR, "posts", fmt.Sprintf("%s.md", filename))
 
@@ -895,7 +899,7 @@ func execCurCmd(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	// Exec command instruction
-	msg := exec(cmd)
+	msg := exec(g, cmd)
 
 	// Set view to msg screen
 	msgView, err := g.SetCurrentView("msg")
@@ -917,16 +921,50 @@ func execCurCmd(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
-func exec(cmd string) (msg string) {
+func exec(g *gocui.Gui, cmd string) (msg string) {
 	var err error
+	var v1, v2 *gocui.View
+
 	switch cmd {
 	case "init":
 		err = initDirs()
 	case "generate":
 		err = generate()
-		// case "post":
+	case "post":
+		v1, err = g.View("input1")
+		if err != nil {
+			return err.Error()
+		}
+		tags := []string{}
+		tagsBuffer := strings.TrimSpace(v1.Buffer())
+		if tagsBuffer != "" {
+			tags = strings.Split(tagsBuffer, " ")
+		}
 
-		// case "tag":
+		v2, err = g.View("input2")
+		if err != nil {
+			return err.Error()
+		}
+		title := strings.TrimSpace(v2.Buffer())
+
+		err = initPost(title, tags)
+
+	case "tag":
+		v1, err = g.View("input1")
+		if err != nil {
+			return err.Error()
+		}
+
+		tags := []string{}
+		tagsBuffer := strings.TrimSpace(v1.Buffer())
+
+		if tagsBuffer == "" {
+			return errors.New("no tag values provided").Error()
+		}
+
+		tags = strings.Split(tagsBuffer, " ")
+		err = createTag(tags)
+
 	default:
 		err = fmt.Errorf("command does not exist: %s", cmd)
 	}
