@@ -981,7 +981,6 @@ func removeHighlight(v *gocui.View) {
 	v.Highlight = false
 }
 
-// TODO: Skip input2 i.e. title input if "tags" cmd
 func nextView(g *gocui.Gui, v *gocui.View) error {
 	// Check current command
 	sideView, err := g.View("side")
@@ -1002,6 +1001,14 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 	// Set current view on top and set background color
 	nextIndex := (active + 1) % len(viewArr)
 	curViewName := viewArr[nextIndex]
+
+	// If command is tags, skip input2 (title)
+	// Avoid changing colors highlights and move ahead
+	if cmd == "tag" && curViewName == "input2" {
+		active = nextIndex
+		return nextView(g, v)
+	}
+
 	var toColorBackground, toHighlight bool
 	if curViewName == "side" {
 		toHighlight = true
