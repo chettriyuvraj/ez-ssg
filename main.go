@@ -779,6 +779,15 @@ func cursorDown(g *gocui.Gui, v *gocui.View) error {
 	if _, err := g.SetCurrentView("side"); err != nil {
 		return err
 	}
+
+	// Clear input views
+	if err := clearView(g, "input1"); err != nil {
+		return err
+	}
+	if err := clearView(g, "input2"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -800,6 +809,14 @@ func cursorUp(g *gocui.Gui, v *gocui.View) error {
 		}
 	}
 	if err := SetCurrentCmdInstruction(g, v); err != nil {
+		return err
+	}
+
+	// Clear input views
+	if err := clearView(g, "input1"); err != nil {
+		return err
+	}
+	if err := clearView(g, "input2"); err != nil {
 		return err
 	}
 	return nil
@@ -1062,6 +1079,15 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 	removeBgColor(v)
 	removeHighlight(v)
 
+	return nil
+}
+
+func clearView(g *gocui.Gui, name string) error {
+	v, err := g.View(name)
+	if err != nil {
+		return err
+	}
+	v.Clear()
 	return nil
 }
 
