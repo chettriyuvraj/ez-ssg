@@ -96,18 +96,6 @@ const (
 	FRONTMATTER_BOUNDARY = "------------------"
 )
 
-// type Command struct {
-// 	instruction string
-// 	exec        func() error
-// }
-
-// var commands map[string]Command = map[string]Command{
-
-//		"init":     Command{exec: initDirs, instruction: "Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app."},
-//		"generate": Command{exec: generate, instruction: "Generates the static site. Use it when you have all the content ready to generate HTML."},
-//		"post":     Command{exec: initPost, instruction: "Creates a new post"},
-//		"tag":      Command{exec: createTag, instruction: "Creates one/multiple new tag under which posts can be classified."},
-//	}
 var commands map[string]string = map[string]string{
 	"init":     "Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.",
 	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
@@ -126,7 +114,7 @@ var includesEFS embed.FS
 var layoutsEFS embed.FS
 
 //go:embed assets/*
-var assetsEFS embed.FS
+var assetsEFS embed.FS // contains style.css file for website's css + a sample favicon
 
 /* Samples */
 var sampleCfg Config = Config{
@@ -152,30 +140,46 @@ var sampleCfg Config = Config{
 }
 
 /* GUI Related variables */
+/* Global variables to switch between views and keep track of which one is active */
 var (
 	viewArr = []string{"side", "input1", "input2"}
 	active  = 0
 )
 
+/***********************
+* Starts interactive GUI mode if no arguments passed
+*
+* OR
+*
+* Parses arguments and executes command line program
+* depending on which command is passed
+************************/
+
 func main() {
 	logger := log.New(os.Stderr, "", 0)
 
+	/* If no args passed, start interactive CLI mode */
 	if len(os.Args) == 1 {
 		interactive(logger)
 	}
 
+	/* Command line mode */
 	var err error
 
+	/* Check if valid command */
 	cmd := os.Args[1]
 	if _, exists := commands[cmd]; !exists {
 		logger.Fatalf(help())
 	}
 
+	/* Parse args and execute command */
 	switch cmd {
 	case "init":
-		err = initDirs()
+		err = initialize()
+
 	case "generate":
-		err = generate()
+		err = generateStaticSite()
+
 	case "post":
 		if len(os.Args) < 3 {
 			logger.Fatalf(help())
@@ -184,27 +188,42 @@ func main() {
 		title := os.Args[2]
 		tags := []string{}
 		if len(os.Args) < 5 || os.Args[3] != "-t" {
-			initPost(title, tags)
+			createPost(title, tags)
 			return
 		}
 
 		tags = os.Args[4:]
-		err = initPost(title, tags)
+		err = createPost(title, tags)
 	case "tag":
 		if len(os.Args) < 3 {
 			logger.Fatalf(help())
 		}
 
 		tags := os.Args[2:]
-		err = createTag(tags) // TODO: add args
+		err = createTag(tags)
 	}
 
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 
-func initDirs() error {
+/***********************
+* Core command functions
+************************/
+
+/***********************
+* This command MUST be run to initialize the default directories + files for our static site.
+* Run this the very first time you use the tool.
+*
+* Initializes the following essentials for our static site:
+* 1. A 'markdown' directory which contains sub-directories for posts, tags and assets
+* 2. A sample config.json file which contains necessary metadata for our website, needs to be filled by user
+* 3. 'index' and 'blog' markdown files, which will contain text and metadata for the homepage and blog listing page
+************************/
+func initialize() error {
+
+	/* Initialize directories */
 	if err := os.MkdirAll(filepath.Join(MARKDOWN_DIR, "posts"), 0750); err != nil {
 		return fmt.Errorf("error creating markdown/posts folder: %w", err)
 	}
@@ -215,41 +234,41 @@ func initDirs() error {
 		return fmt.Errorf("error creating markdown/assets/images folder: %w", err)
 	}
 
-	/* Create sample data for default files */
-	/* Sample config */
+	/* Initialize default files with sample data */
+	/* Config file */
 	cfg, err := json.MarshalIndent(sampleCfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling sample config to json: %w", err)
 	}
 
-	/* Index file metadata */
+	/* Index file */
 	index := Post{
 		Title:       "(enter title for homepage - this is what is displayed when you hover over your browser page tab)",
 		Description: "(enter description for home page - this is metadata and not website displayable content)",
 	}
-	indexMeta, err := json.MarshalIndent(index, "", "  ")
+	indexMetadata, err := json.MarshalIndent(index, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling index file metadata to json: %w", err)
 	}
 
-	/* Blog file metadata */
+	/* Blog file */
 	blog := Post{
 		Title:       "(enter title for blog page - this is what is displayed when you hover over your browser page tab)",
 		Description: "(enter description for blog page - this is metadata and not website displayable content)",
 	}
-	blogMeta, err := json.MarshalIndent(blog, "", "  ")
+	blogMetadata, err := json.MarshalIndent(blog, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling blog file metadata to json: %w", err)
 	}
 
 	/* Create default files */
 	indexFilepath := filepath.Join(MARKDOWN_DIR, INDEX_FILE)
-	if err := addFrontmatter(indexFilepath, indexMeta); err != nil {
+	if err := addFrontmatter(indexFilepath, indexMetadata); err != nil {
 		return fmt.Errorf("error creating file %s: %w", indexFilepath, err)
 	}
 
 	blogFilepath := filepath.Join(MARKDOWN_DIR, BLOG_FILE)
-	if err := addFrontmatter(blogFilepath, blogMeta); err != nil {
+	if err := addFrontmatter(blogFilepath, blogMetadata); err != nil {
 		return fmt.Errorf("error creating file %s: %w", blogFilepath, err)
 	}
 
@@ -264,7 +283,17 @@ func initDirs() error {
 	return nil
 }
 
-func initPost(title string, tags []string) error {
+/***********************
+* Creates a post in the 'markdown/posts' folder.
+* Any tags passed must be created first using createTag() command
+* If a particular tag has not been created, it will not be visible on the static site.
+*
+* A post is stored as a markdown file with frontmatter - it has the following metadata as frontmatter:
+* 1. Title (Mandatory)
+* 2. Date (Auto-generated)
+* 3. Tags (Optional)
+************************/
+func createPost(title string, tags []string) error {
 	if title == "" {
 		return fmt.Errorf("no title provided")
 	}
@@ -272,23 +301,31 @@ func initPost(title string, tags []string) error {
 	filename := strings.ReplaceAll(title, " ", "_")
 	filepath := filepath.Join(MARKDOWN_DIR, "posts", fmt.Sprintf("%s.md", filename))
 
-	meta := Post{
+	metadata := Post{
 		Title: title,
 		Tags:  tags,
 		Date:  formatDate(time.Now()),
 	}
-	metaRaw, err := json.MarshalIndent(meta, "", "  ")
+	rawMetadata, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling post metadata to json: %w", err)
 	}
 
-	if err := addFrontmatter(filepath, metaRaw); err != nil {
+	if err := addFrontmatter(filepath, rawMetadata); err != nil {
 		return fmt.Errorf("error creating post file %s: %w", filepath, err)
 	}
 
 	return nil
 }
 
+/***********************
+* Creates a tag in the 'markdown/tags' folder.
+* Once a tag has been created, it is displayed in the 'blog' section as a hashtag.
+* You can add posts under a given tag by passing them in the createPost command.
+*
+* A tag is stored as a simple json file and has the following fields:
+* 1. Slug
+************************/
 func createTag(tags []string) error {
 	for _, t := range tags {
 		slug := strings.ToLower(t)
@@ -308,18 +345,31 @@ func createTag(tags []string) error {
 	return nil
 }
 
-func generate() error {
-	if err := reset(); err != nil {
+/***********************
+* Generates static site using data in the content folder: 'markdown'
+*
+* 1. Deletes old static site directory and creates a fresh one
+* 2. Creates a 'Config' struct that contains both config + content (posts, tags) for the website
+* 3. Render special pages i.e. homepage and blog listings page
+*
+************************/
+func generateStaticSite() error {
+	/* Delete old directory and create a fresh one */
+	if err := resetStaticSite(); err != nil {
 		return fmt.Errorf("error resetting site directory: %w", err)
 	}
 
-	/* Copy over assets folder */
+	/* Copy over 'markdown/assets' folder into site directory */
 	assetsFS := os.DirFS(filepath.Join(MARKDOWN_DIR, ASSETS_DIR))
 	if err := os.CopyFS(SITE_DIR, assetsFS); err != nil {
 		return fmt.Errorf("error copying markdown/assets folder: %w", err)
 	}
 
-	/* Parse config */
+	/* This config struct contains both config + content (posts, tags) */
+	/* Think of this as a master struct */
+	var cfg Config
+
+	/* Parse config file and unmarshal into cfg struct */
 	f, err := os.Open(CONFIG_FILE)
 	if err != nil {
 		return fmt.Errorf("error opening config file: %w", err)
@@ -331,20 +381,19 @@ func generate() error {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
 
-	var cfg Config
 	err = json.Unmarshal(cfgRaw, &cfg)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling config file: %w", err)
 	}
 
-	/* Parse posts */
+	/* Parse posts and add to cfg struct */
 	var posts []Post
 	postsDir := filepath.Join(MARKDOWN_DIR, "posts")
 	postsFS := os.DirFS(postsDir)
 	postsFilenames, err := fs.Glob(postsFS, "*.md")
 	for _, name := range postsFilenames {
 		path := filepath.Join(postsDir, name)
-		post, err := parse(path)
+		post, err := parsePost(path)
 		if err != nil {
 			return fmt.Errorf("error rendering posts: %w", err)
 		}
@@ -353,7 +402,7 @@ func generate() error {
 	}
 	cfg.Posts = posts
 
-	/* Parse tags */
+	/* Parse tags and add to cfg struct */
 	var tags []Tag
 	tagsDir := filepath.Join(MARKDOWN_DIR, "tags")
 	tagsFS := os.DirFS(tagsDir)
@@ -376,23 +425,14 @@ func generate() error {
 	}
 	cfg.Tags = tags
 
-	/* We have to execute includes template for each page */
-	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
-	if err != nil {
-		return fmt.Errorf("error finding includes filenames: %s", err)
-	}
-	includes := template.Must(template.ParseFS(includesEFS, includesFilenames...))
-	for _, name := range includesFilenames {
-		root := strings.Split(name, "/")[1]
-		includesRender[root] = ""
-	}
-
 	/* First render special pages */
+	/* Index page is the homepage */
+	/* Blog page is the blog listings page which displays all posts */
 	for _, name := range specialFiles {
 
-		/* Parse post */
+		/* Parse special page as a post */
 		path := filepath.Join(MARKDOWN_DIR, name)
-		post, err := parse(path)
+		post, err := parsePost(path)
 		if err != nil {
 			return fmt.Errorf("error parsing special file %s: %w", post.RootName, err)
 		}
@@ -403,9 +443,10 @@ func generate() error {
 			post.Layout = "blog"
 		}
 
-		/* Render post */
+		/* Render post with an empty tag */
+		/* No tag as this is not a typical 'post' but a special page which is always rendered */
 		destDir := SITE_DIR
-		err = render(post, destDir, cfg, includes, Tag{})
+		err = renderPostHTML(post, cfg, destDir)
 		if err != nil {
 			return fmt.Errorf("error rendering special pages: %w", err)
 		}
@@ -417,7 +458,7 @@ func generate() error {
 
 		/* Parse post */
 		path := filepath.Join(postsDir, name)
-		post, err := parse(path)
+		post, err := parsePost(path)
 		if err != nil {
 			return fmt.Errorf("error parsing blog post %s: %w", post.RootName, err)
 		}
@@ -425,7 +466,7 @@ func generate() error {
 
 		/* Render post */
 		destDir := filepath.Join(SITE_DIR, "blog")
-		err = render(post, destDir, cfg, includes, Tag{})
+		err = renderPostHTML(post, cfg, destDir)
 		if err != nil {
 			return fmt.Errorf("error rendering posts: %w", err)
 		}
@@ -438,12 +479,9 @@ func generate() error {
 			return fmt.Errorf("error creating docs/tagged/%s folder: %w", t.Slug, err)
 		}
 
-		/* Parse tag as a post */
-		post := Post{Layout: "tagged", RootName: t.Slug}
-
-		/* Render post */
+		/* Render tag HTML */
 		destDir := filepath.Join(SITE_DIR, "tagged", t.Slug)
-		err = render(post, destDir, cfg, includes, t)
+		err = renderTagsHTML(t, cfg, destDir)
 		if err != nil {
 			return fmt.Errorf("error rendering tags: %w", err)
 		}
@@ -452,9 +490,44 @@ func generate() error {
 	return nil
 }
 
-func render(post Post, destDir string, cfg Config, includes *template.Template, tag Tag) error {
+/***********************
+* Helper functions
+************************/
+
+/***********************
+* Renders the final HTML file for a given post using a 3 step process.
+* We have the following terminology
+*
+* Includes:
+* - HTML templates that contain common components used in every HTML page
+* - For example: header, footer, etc.
+* - They require both site and post info - e.g. a 'header' component might require post title for a <meta> tag
+*
+* Layouts:
+* - HTML templates that arrange 'Includes' + post content in specific ways to create different layouts
+* - E.g. a blog post page might have a different layout as compared to a blog listing page
+
+* Final HTML:
+* - Site + Post metadata -> Includes
+* - Includes + Post content -> Layouts
+* - Layout template which is fully filled -> Final HTML page
+************************/
+
+func renderPostHTML(post Post, cfg Config, destDir string) error {
+	/* We have to execute includes template for each page */
+	/* Copy includes templates from embedded includesFS into memory */
+	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
+	if err != nil {
+		return fmt.Errorf("error finding includes filenames: %s", err)
+	}
+	includes := template.Must(template.ParseFS(includesEFS, includesFilenames...))
+	for _, name := range includesFilenames {
+		root := strings.Split(name, "/")[1]
+		includesRender[root] = ""
+	}
 
 	/* Generate includes using page and site info*/
+	/* Hardcoding includes file names */
 	includesContent := IncludesContent{
 		Site: cfg,
 		Post: post,
@@ -474,13 +547,12 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 		}
 	}
 
-	/* Generate layout using page and includes info */
+	/* Generate layout using page content and includes info */
 	layoutContent := LayoutContent{
 		Content:  template.HTML(post.HTML),
 		Site:     cfg,
 		Post:     post,
 		Includes: includesRender,
-		Tag:      tag,
 	}
 	layoutFilename := post.Layout
 	layoutTempl, err := template.ParseFS(layoutsEFS, fmt.Sprintf("layouts/%s.html", layoutFilename))
@@ -488,10 +560,11 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 	if err != nil {
 		return fmt.Errorf("error parsing layout template file %s: %w", layoutFilename, err)
 	}
+
+	/* Create final HTML file */
 	render := bytes.Buffer{}
 	layoutTempl.Execute(&render, layoutContent)
 
-	/* Create final HTML file */
 	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", post.RootName)))
 	if err != nil {
 		return fmt.Errorf("error creating HTML file for %s: %w", post.RootName, err)
@@ -505,8 +578,85 @@ func render(post Post, destDir string, cfg Config, includes *template.Template, 
 	return nil
 }
 
-func parse(path string) (post Post, err error) {
-	metadata, markdown, err := readFull(path)
+/***********************
+* Renders the final HTML file for a given TAG using a 3 step process.
+* Read the documentation for renderPostHTML(...) to understand the process
+************************/
+
+func renderTagsHTML(tag Tag, cfg Config, destDir string) error {
+
+	/* We have to execute includes template for each page */
+	/* Copy includes templates from embedded includesFS into memory */
+	includesFilenames, err := fs.Glob(includesEFS, "includes/*.html")
+	if err != nil {
+		return fmt.Errorf("error finding includes filenames: %s", err)
+	}
+	includes := template.Must(template.ParseFS(includesEFS, includesFilenames...))
+	for _, name := range includesFilenames {
+		root := strings.Split(name, "/")[1]
+		includesRender[root] = ""
+	}
+
+	/* Generate includes using page and site info*/
+	/* Hardcoding includes file names */
+	includesContent := IncludesContent{
+		Site: cfg,
+		Post: Post{Layout: "tagged", RootName: tag.Slug},
+	}
+	for k := range includesRender {
+		b := bytes.Buffer{}
+		includes.ExecuteTemplate(&b, k, includesContent)
+		switch k {
+		case "header.html":
+			includesRender[INCLUDES_HEADER] = template.HTML((b.String()))
+		case "footer.html":
+			includesRender[INCLUDES_FOOTER] = template.HTML((b.String()))
+		case "head.html":
+			includesRender[INCLUDES_HEAD] = template.HTML((b.String()))
+		case "footer-post.html":
+			includesRender[INCLUDES_FOOTERPOST] = template.HTML((b.String()))
+		}
+	}
+
+	var tagAsPost Post = Post{Layout: "tagged", RootName: tag.Slug}
+
+	/* Generate layout using includes info + tag info - tag layout technically has no markdown content as such unlike a post */
+	layoutContent := LayoutContent{
+		Site:     cfg,
+		Post:     tagAsPost,
+		Includes: includesRender,
+		Tag:      tag,
+	}
+	layoutFilename := "tagged"
+	layoutTempl, err := template.ParseFS(layoutsEFS, fmt.Sprintf("layouts/%s.html", layoutFilename))
+
+	/* Create final HTML file */
+	render := bytes.Buffer{}
+	layoutTempl.Execute(&render, layoutContent)
+
+	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", tagAsPost.RootName)))
+	if err != nil {
+		return fmt.Errorf("error creating HTML file for %s: %w", tagAsPost.RootName, err)
+	}
+
+	_, err = io.Copy(f, &render)
+	if err != nil {
+		return fmt.Errorf("error rendering HTML for %s: %w", tagAsPost.RootName, err)
+	}
+
+	return nil
+}
+
+/***********************
+* Takes a post path and returns a post struct
+*
+* 1. Reads raw post metadata (frontmatter) and markdown in the form of bytes
+* 2. Converts markdown to HTML
+* 3. Parses post title from the path
+* Returns all of the above in a post struct
+************************/
+func parsePost(path string) (post Post, err error) {
+	metadata, markdown, err := readPost(path)
 	if err != nil {
 		return post, fmt.Errorf("error reading post: %s, %w", path, err)
 	}
@@ -516,80 +666,50 @@ func parse(path string) (post Post, err error) {
 		return post, fmt.Errorf("error unmarshaling metadata: %w", err)
 	}
 
-	post.Markdown = markdown
-	post.HTML = mdToHTML(markdown)
-	post.RootName = rootName(path)
+	post = Post{
+		Markdown: markdown,
+		HTML:     mdToHTML(markdown),
+		RootName: postRootName(path),
+	}
 
 	return post, nil
 }
 
-/*
-If path is bbc/cbc/abc.md, root name is abc.
-We assume the path always ends with file extension i.e '.md', '.json', etc.
-*/
-func rootName(path string) string {
+/***********************
+* Returns the rootname from a post path
+* We are expecting the post to be of form: "<post_title>.md"
+************************/
+func postRootName(path string) string {
 	_, filename := filepath.Split(path)
 	return strings.Split(filename, ".")[0]
 }
 
+/***********************
+* Simply reads a file
+************************/
 func read(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("error opening metadata file: %w", err)
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer f.Close()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("error reading metadata file: %w", err)
+		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
 	return b, nil
 }
 
-/* https://github.com/gomarkdown/markdown/blob/master/examples/basic.go */
-func mdToHTML(md []byte) []byte {
-	/* Create markdown parser with extensions */
-	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock | parser.FencedCode
-	p := parser.NewWithExtensions(extensions)
-	doc := p.Parse(md)
-
-	/* Create HTML renderer with extensions */
-	renderer := newCustomizedRender()
-
-	return markdown.Render(doc, renderer)
-}
-
-func renderCodeBlock(w io.Writer, c *ast.CodeBlock, entering bool) {
-	if entering {
-		io.WriteString(w, "<div class='highlight'><pre class='highlight'><code>")
-		io.WriteString(w, string(c.Literal))     // Write the code content
-		io.WriteString(w, "</code></pre></div>") // Immediately close tags
-	}
-}
-
-func myRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
-	if codeBlock, ok := node.(*ast.CodeBlock); ok {
-		renderCodeBlock(w, codeBlock, entering)
-		return ast.GoToNext, true
-	}
-	return ast.GoToNext, false
-}
-
-func newCustomizedRender() *html.Renderer {
-	opts := html.RendererOptions{
-		Flags:          html.CommonFlags | html.HrefTargetBlank,
-		RenderNodeHook: myRenderHook,
-	}
-	return html.NewRenderer(opts)
-}
-
-func (p Post) ContainsTag(tag string) bool {
-	return slices.Contains(p.Tags, tag)
-}
-
-/* Delete old site directory and create new one + copy over assets folder */
-func reset() error {
+/***********************
+* Used before generating static site
+*
+* 1. Deletes old site directory
+* 2. Creates fresh site directories and sub-directories
+* 3. Creates a sample assets folder with sample favicon and CSS
+************************/
+func resetStaticSite() error {
 	if err := os.RemoveAll(SITE_DIR); err != nil {
 		return fmt.Errorf("error deleting old docs/ folder to create new one: %w", err)
 	}
@@ -616,7 +736,7 @@ Options:
 
 Commands:
 
-  init		Initializes content directories for creating blog posts and adding tags. Use the absolute first time you are running this app.
+  init		Initializes content directories and base files for creating blog posts and adding tags. Use the absolute first time you are running this app.
   generate	Generates the static site.
   post		Creates a new post
   tag		Creates one/multiple new tag under which posts can be classified.
@@ -669,8 +789,9 @@ func formatDate(t time.Time) string {
 	return t.Format("Jan") + fmt.Sprintf(" %d%s, %d", day, suffix, t.Year())
 }
 
-/* We are expecting data to be in json */
-/* File will be truncated to write frontmatter */
+/***********************
+* Writes metadata as frontmatter to a particular file
+************************/
 func addFrontmatter(filepath string, data []byte) error {
 	var buf bytes.Buffer
 
@@ -691,7 +812,16 @@ func addFrontmatter(filepath string, data []byte) error {
 	return nil
 }
 
-func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
+/***********************
+* Takes a post path and returns raw data - frontmatter metadata + post content i.e. markdown
+* Starts reading from the top
+
+* 1. First reads the post metadata which is in the form of frontmatter with (start) and (end) boundary
+* 2. Once start and end boundary encountered for frontmatter, everything else is post content
+* 3. Returns frontmatter and metadata as raw byte slice
+************************/
+
+func readPost(filepath string) (frontmatter []byte, content []byte, err error) {
 	var bufFrontMatter, bufContent bytes.Buffer
 
 	f, err := os.Open(filepath)
@@ -733,6 +863,64 @@ func readFull(filepath string) (frontmatter []byte, content []byte, err error) {
 
 	return bufFrontMatter.Bytes(), bufContent.Bytes(), nil
 }
+
+/***********************
+* Used inside a template to check if
+* a post belongs to a particular tag
+************************/
+
+func (p Post) ContainsTag(tag string) bool {
+	return slices.Contains(p.Tags, tag)
+}
+
+/***********************
+* Helper functions to convert markdown to HTML
+************************/
+
+/***********************
+* Converts raw markdown to raw HTML
+* Reference: https://github.com/gomarkdown/markdown/blob/master/examples/basic.go
+************************/
+
+func mdToHTML(md []byte) []byte {
+	/* Create markdown parser with extensions */
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock | parser.FencedCode
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(md)
+
+	/* Create HTML renderer with extensions */
+	renderer := newCustomizedRender()
+
+	return markdown.Render(doc, renderer)
+}
+
+func renderCodeBlock(w io.Writer, c *ast.CodeBlock, entering bool) {
+	if entering {
+		io.WriteString(w, "<div class='highlight'><pre class='highlight'><code>")
+		io.WriteString(w, string(c.Literal))     // Write the code content
+		io.WriteString(w, "</code></pre></div>") // Immediately close tags
+	}
+}
+
+func myRenderHook(w io.Writer, node ast.Node, entering bool) (ast.WalkStatus, bool) {
+	if codeBlock, ok := node.(*ast.CodeBlock); ok {
+		renderCodeBlock(w, codeBlock, entering)
+		return ast.GoToNext, true
+	}
+	return ast.GoToNext, false
+}
+
+func newCustomizedRender() *html.Renderer {
+	opts := html.RendererOptions{
+		Flags:          html.CommonFlags | html.HrefTargetBlank,
+		RenderNodeHook: myRenderHook,
+	}
+	return html.NewRenderer(opts)
+}
+
+/***********************
+* GUI Related functions
+************************/
 
 func cursorDown(g *gocui.Gui, v *gocui.View) error {
 	// Clear any messages from previous command execution
@@ -944,9 +1132,9 @@ func exec(g *gocui.Gui, cmd string) (msg string) {
 
 	switch cmd {
 	case "init":
-		err = initDirs()
+		err = initialize()
 	case "generate":
-		err = generate()
+		err = generateStaticSite()
 	case "post":
 		v1, err = g.View("input1")
 		if err != nil {
@@ -964,7 +1152,7 @@ func exec(g *gocui.Gui, cmd string) (msg string) {
 		}
 		title := strings.TrimSpace(v2.Buffer())
 
-		err = initPost(title, tags)
+		err = createPost(title, tags)
 
 	case "tag":
 		v1, err = g.View("input1")

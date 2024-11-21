@@ -47,7 +47,7 @@ func TestAddReadFrontmatter(t *testing.T) {
 	require.NoError(t, err)
 
 	/* Read frontmatter */
-	fm, _, err := readFull(filename)
+	fm, _, err := readPost(filename)
 	require.NoError(t, err)
 
 	/* Parse to config */
