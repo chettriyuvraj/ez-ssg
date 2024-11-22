@@ -666,11 +666,9 @@ func parsePost(path string) (post Post, err error) {
 		return post, fmt.Errorf("error unmarshaling metadata: %w", err)
 	}
 
-	post = Post{
-		Markdown: markdown,
-		HTML:     mdToHTML(markdown),
-		RootName: postRootName(path),
-	}
+	post.Markdown = markdown
+	post.HTML = mdToHTML(markdown)
+	post.RootName = postRootName(path)
 
 	return post, nil
 }
@@ -791,6 +789,7 @@ func formatDate(t time.Time) string {
 
 /***********************
 * Writes metadata as frontmatter to a particular file
+* Creates file if it does not exist, otherwise truncates
 ************************/
 func addFrontmatter(filepath string, data []byte) error {
 	var buf bytes.Buffer
