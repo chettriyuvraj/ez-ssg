@@ -992,6 +992,9 @@ func newCustomizedRender() *html.Renderer {
 
 /***********************
 * GUI Related functions
+* Mish-mash of examples from
+* gocui repo - have written
+* 'just-working' code :P
 ************************/
 
 func cursorDown(g *gocui.Gui, v *gocui.View) error {
