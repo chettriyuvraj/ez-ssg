@@ -4,11 +4,11 @@
 
 I created [my personal website](https://chettriyuvraj.github.io/) using [Jekyll](https://jekyllrb.com/) a while back.
 
-While I did not end up writing a lot, Jekyll did take a bit of setting up.
+For a minimal website like mine, Jekyll felt like a bit of a main to set up.
 
 Since I already knew the theme and styling I wanted, I decided to write my own little static-site-generator.
 
-If you want a clearn, minimal static-site like mine, use _ez-ssg_.
+Want a static site like chettriyuvraj.github.io? Generate it in 5 minutes using _ez-ssg_.
 
 ## How will the static site look?
 
@@ -20,7 +20,7 @@ A quick look at my static website:
 
 **Blog page**
 
-- Note how you can also see available 'tags' at the end of the listings
+- Note how you can also see available 'tags' at the end of the listing
 
 ![Blog page of my static website](/images/blogpage.png)
 
@@ -30,7 +30,7 @@ A quick look at my static website:
 
 **Tags page**
 
-- Clicking on a particular tag in the _blog_ page brings us to this section.
+- Clicking on a particular tag at the bottom of the _blog_ page brings us to this section.
 
 ![The tags page, which shows the blog posts under a particular tag](/images/tagspage.png)
 
@@ -43,7 +43,7 @@ Just provide the content, _ez-ssg_ will do the rest.
 
 _ez-ssg_ is opinionated on how you need to structure your content directory.
 
-Simply run the following command to give you a markdown folder organized in the following manner:
+Simply run the following command to give you a markdown folder organized in the correct manner:
 
 ```
 ez-ssg init
@@ -109,7 +109,7 @@ You can look at the screenshots of my website above and fill it up as follows:
 
 - The _description_ is used as a meta header
 
-- The _URL_ is used for serving the website, used _http://localhost:3000_ when generating it to serve it locally using _ez-ssg serve_ and change it to your website's actual URL when generating it to serve online. (Generation using _ez-ssg generate_ command)
+- The _URL_ is used for serving the website, use _http://localhost:3000_ when generating it to serve it locally using _ez-ssg serve_ and change it to your website's actual URL when generating it to serve online. (Generation using _ez-ssg generate_ command explained ahead.)
 
 - _special_links_ show up alongside the _Home_ and _Blog_ pages as a navbar.
 
@@ -137,13 +137,15 @@ Fill in the content - you can add images to the _markdown/assets/images_ folder 
 
 ### Create a new tag
 
-You created a post under the _programming_ and _golang_ tag. However you have to create the corresponding tag for it to be displayed on the blog page as a filter.
+You created a post under the _programming_ and _golang_ tag. 
+
+However you have to create the corresponding tag for it to be displayed on the blog page as a filter.
 
 ```
 ez-ssg tag programming golang
 ```
 
-This creates a tag json file under the _tags_ folder as follows:
+This creates two tag json files under the _tags_ folder which look like:
 
 ![A sample tags json file](/images/tags_example.png)
 
@@ -155,6 +157,11 @@ You can create more tags if you want. Create a post under a tag and then create 
 Fill up _config.json_ as described in [this section](#config)
 
 
+### Images and favicon
+
+- Double check if you have added images and favicon correctly in the _assets_ folde.r
+
+
 ### Generate static site
 
 Finally, you can generate a static site using the following command:
@@ -163,7 +170,10 @@ Finally, you can generate a static site using the following command:
 ez-ssg generate
 ```
 
+
+
 This will generate a folder as follows:
+
 ![The blog listings page markdown file](/images/staticgenerate_example.png)
 
 
@@ -178,7 +188,13 @@ ez-ssg serve <port number>
 Note that you must change the _URL_ field in _config.json_ to _http://localhost:<port_number>_ when serving locally
 
 
+## Modes
+
+We have two modes, command-line mode and a GUI mode.
+
 ### Command Line Mode
+You can use _ez-ssg_ as a regular command line program.
+
 For reference, this is the help section for _ez-ssg_
 
 ```
