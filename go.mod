@@ -1,4 +1,5 @@
-module github.com/chettriyuvraj/ez-ssg
+module github.com/chettriyuvraj/ez-ssg/v2
+
 
 go 1.23.1
 
