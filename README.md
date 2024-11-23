@@ -37,6 +37,12 @@ A quick look at my static website:
 
 ## How to use ez-ssg to generate my static website?
 
+### Install
+
+```
+go install github.com/chettriyuvraj/ez-ssg/v2@latest
+```
+
 ### Organize your content
 
 Just provide the content, _ez-ssg_ will do the rest.
@@ -110,6 +116,7 @@ You can look at the screenshots of my website above and fill it up as follows:
 - The _description_ is used as a meta header
 
 - The _URL_ is used for serving the website, use _http://localhost:3000_ when generating it to serve it locally using _ez-ssg serve_ and change it to your website's actual URL when generating it to serve online. (Generation using _ez-ssg generate_ command explained ahead.)
+  - Avoid trailing slash e.g. set URL as _https://chettriyuvraj.github.io_ instead of _https://chettriyuvraj.github.io/_
 
 - _special_links_ show up alongside the _Home_ and _Blog_ pages as a navbar.
 
