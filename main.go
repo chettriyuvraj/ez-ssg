@@ -149,28 +149,29 @@ var (
 )
 
 /***********************
-* Starts interactive GUI mode if no arguments passed
-*
-* OR
-*
 * Parses arguments and executes command line program
 * depending on which command is passed
 ************************/
 
 func main() {
 	logger := log.New(os.Stderr, "", 0)
+	var err error
 
-	/* If no args passed, start interactive CLI mode */
+	/* If no args passed, display help screen */
 	if len(os.Args) == 1 {
+		log.Fatal(help())
+		return
+	}
+
+	cmd := os.Args[1]
+
+	/* Interactive mode */
+	if cmd == "interactive" {
 		interactive(logger)
 		return
 	}
 
 	/* Command line mode */
-	var err error
-
-	/* Check if valid command */
-	cmd := os.Args[1]
 	if _, exists := commands[cmd]; !exists {
 		logger.Fatalf(help())
 	}
@@ -779,10 +780,11 @@ Options:
 
 Commands:
 
-  init		Initializes content directories and base files for creating blog posts and adding tags. Use the absolute first time you are running this app.
-  generate	Generates the static site.
-  post		Creates a new post
-  tag		Creates one/multiple new tag under which posts can be classified.
+  init			Initializes content directories and base files for creating blog posts and adding tags. Use the absolute first time you are running this app.
+  generate		Generates the static site.
+  post			Creates a new post
+  tag			Creates one/multiple new tag under which posts can be classified.
+  interactive		Starts interactive command line interface
 
 Commands Usage:
 
@@ -813,6 +815,11 @@ Commands Usage:
 
   Usage: ez-ssg tag <tag 1> <tag2> ..
 
+  
+  interactive
+
+  Usage: ez-ssg interactive
+  
 `
 }
 
