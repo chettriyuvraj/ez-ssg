@@ -102,7 +102,7 @@ var commands map[string]string = map[string]string{
 	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
 	"post":     "Creates a new post",
 	"tag":      "Creates one/multiple new tags under which posts can be classified.",
-	"serve":    "Serves the static files generated in a local HTTP server. To be used after generate command to view the output",
+	"serve":    "Serves the static files generated in a local HTTP server - to be used after generate command to view the output",
 }
 
 /* Fully rendered html for header, footer, etc */
@@ -163,6 +163,7 @@ func main() {
 	/* If no args passed, start interactive CLI mode */
 	if len(os.Args) == 1 {
 		interactive(logger)
+		return
 	}
 
 	/* Command line mode */
@@ -205,29 +206,7 @@ func main() {
 		err = createTag(tags)
 
 	case "serve":
-		fileServer := http.FileServer(http.Dir("./docs"))
-
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-			requestPath := r.URL.Path
-
-			/* blog.html must be distinguished from the blog directory which contains posts */
-			if requestPath == "/blog" || requestPath == "/blog/" {
-				http.ServeFile(w, r, "./docs/blog.html")
-				return
-			}
-
-			/* Check if the path maps to a file with .html (e.g., `/blog/<postname>.html`) */
-			htmlPath := "./docs" + requestPath + ".html"
-			if _, err := os.Stat(htmlPath); err == nil {
-				http.ServeFile(w, r, htmlPath)
-				return
-			}
-
-			fileServer.ServeHTTP(w, r)
-		})
-
-		http.ListenAndServe(":3000", nil)
+		err = serveStaticSite()
 	}
 
 	if err != nil {
@@ -513,6 +492,43 @@ func generateStaticSite() error {
 			return fmt.Errorf("error rendering tags: %w", err)
 		}
 	}
+
+	return nil
+}
+
+/***********************
+* Serves static site generated using the 'generate' command
+* The site is expected
+*
+* 1. Deletes old static site directory and creates a fresh one
+* 2. Creates a 'Config' struct that contains both config + content (posts, tags) for the website
+* 3. Render special pages i.e. homepage and blog listings page
+*
+************************/
+func serveStaticSite() error {
+	fileServer := http.FileServer(http.Dir("./docs"))
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		requestPath := r.URL.Path
+
+		/* blog.html must be distinguished from the blog directory which contains posts */
+		if requestPath == "/blog" || requestPath == "/blog/" {
+			http.ServeFile(w, r, fmt.Sprintf("./%s/blog.html", SITE_DIR))
+			return
+		}
+
+		/* Check if the path maps to a file with .html (e.g., `/blog/<postname>.html`) */
+		htmlPath := SITE_DIR + requestPath + ".html"
+		if _, err := os.Stat(htmlPath); err == nil {
+			http.ServeFile(w, r, htmlPath)
+			return
+		}
+
+		fileServer.ServeHTTP(w, r)
+	})
+
+	http.ListenAndServe(":3000", nil)
 
 	return nil
 }
@@ -1092,7 +1108,7 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 
 	// Show inputs according to the command
 	switch cmd {
-	case "init", "generate":
+	case "init", "generate", "serve":
 		inp1View.Frame = false
 		inp2View.Frame = false
 		inp1View.Clear()
@@ -1101,30 +1117,12 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 	case "post":
 		inp1View.Frame = true
 		inp2View.Frame = true
-		// inp1View.Editable = true
-		// inp2View.Editable = true
-		// inp1View.Clear()
-		// inp2View.Clear()
-		// if _, err := inp1View.Write([]byte("<enter post title>")); err != nil {
-		// 	return fmt.Errorf("unable to show title input view: %w", err)
-		// }
-		// if _, err := inp2View.Write([]byte("<enter any tags for post - space separated>")); err != nil {
-		// 	return fmt.Errorf("unable to show tag input view: %w", err)
-		// }
 	case "tag":
 		inp1View.Frame = true
 		inp2View.Frame = false
-		// inp1View.Editable = true
-		// inp2View.Editable = true
-		// inp1View.Clear()
-		// inp2View.Clear()
-		// if _, err := inp1View.Write([]byte("<enter the tags you want to create - space separated>")); err != nil {
-		// 	return fmt.Errorf("unable to show tag input view: %w", err)
-		// }
-		// if _, err := inp2View.Write([]byte("-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-")); err != nil {
-		// 	return fmt.Errorf("unable to show tag input view: %w", err)
-		// }
-
+		if _, err := g.SetViewOnTop("input1"); err != nil {
+			return err
+		}
 	default:
 		panic("this command does not exist")
 	}
@@ -1208,6 +1206,9 @@ func exec(g *gocui.Gui, cmd string) (msg string) {
 
 		tags = strings.Split(tagsBuffer, " ")
 		err = createTag(tags)
+
+	case "serve":
+		serveStaticSite()
 
 	default:
 		err = fmt.Errorf("command does not exist: %s", cmd)
@@ -1407,6 +1408,14 @@ func layout(g *gocui.Gui) error {
 }
 
 func interactive(logger *log.Logger) {
+	defer func() {
+		if r := recover(); r != nil {
+			if errMsg, ok := r.(string); ok && strings.TrimSpace(errMsg) == "invalid dimensions" {
+				fmt.Println("Please increase the size of your window to a larger one :(")
+			}
+		}
+	}()
+
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		logger.Panicln(err)
