@@ -1411,7 +1411,7 @@ func interactive(logger *log.Logger) {
 	defer func() {
 		if r := recover(); r != nil {
 			if errMsg, ok := r.(string); ok && strings.TrimSpace(errMsg) == "invalid dimensions" {
-				fmt.Println("Please increase the size of your window to a larger one :(")
+				fmt.Println("Please stretch the size of your terminal window to a larger one :(")
 			}
 		}
 	}()
