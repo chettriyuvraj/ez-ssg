@@ -785,7 +785,7 @@ ez-ssg		Create a static website like chettriyuvraj.github.io in 5 minutes.
 Usage: ez-ssg <command> [argument]
 
 Options:
-	-h	Specify this flag anywhere in the command and we'll show you this help screen.
+	-h	Specify this flag in the command and we'll show you this help screen (e.g. ez-ssg -h)
 
 Commands:
 
