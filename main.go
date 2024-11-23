@@ -779,7 +779,7 @@ Commands Usage:
 
   Usage: ez-ssg generate
 
-  
+
   serve
 
   Usage: ez-ssg serve
@@ -799,6 +799,12 @@ Commands Usage:
 
 `
 }
+
+/***********************
+*  Formats a particular time as
+*  "MMM DD, YYYY"
+#  E.g. "Dec 24, 2024"
+************************/
 
 func formatDate(t time.Time) string {
 	/* Get the day of the month */
