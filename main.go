@@ -978,26 +978,26 @@ func newCustomizedRender() *html.Renderer {
 ************************/
 
 func cursorDown(g *gocui.Gui, v *gocui.View) error {
-	// Clear any messages from previous command execution
+	/* Clear any messages from previous command execution */
 	msgView, err := g.View("msg")
 	if err != nil {
 		return fmt.Errorf("error checking views: %w", err)
 	}
 	msgView.Clear()
 
-	// Check if next line is a command
+	/* Check if next line is a command */
 	cx, cy := v.Cursor()
 	nextCmd, err := v.Line(cy + 1)
 	if err != nil {
 		return fmt.Errorf("error checking for existence of next line: %w", err)
 	}
 
-	// If nothing in the next line don't move down
+	/* If nothing in the next line don't move down */
 	if nextCmd == "" {
 		return nil
 	}
 
-	// Set cursor to next pos
+	/* Set cursor to next pos */
 	if v != nil {
 		if err := v.SetCursor(cx, cy+1); err != nil {
 			ox, oy := v.Origin()
@@ -1007,23 +1007,23 @@ func cursorDown(g *gocui.Gui, v *gocui.View) error {
 		}
 	}
 
-	// Change view to main screen
+	/* Change view to main screen */
 	mainView, err := g.SetCurrentView("main")
 	if err != nil {
 		return err
 	}
 
-	// Since we already have the command, simply display it on main screen
+	/* Since we already have the command, simply display it on main screen */
 	if err := displayCmdInstruction(mainView, nextCmd); err != nil {
 		return err
 	}
 
-	// Set view back to side screen
+	/* Set view back to side screen */
 	if _, err := g.SetCurrentView("side"); err != nil {
 		return err
 	}
 
-	// Clear input views
+	/* Clear input views */
 	if err := clearView(g, "input1"); err != nil {
 		return err
 	}
@@ -1035,7 +1035,7 @@ func cursorDown(g *gocui.Gui, v *gocui.View) error {
 }
 
 func cursorUp(g *gocui.Gui, v *gocui.View) error {
-	// Clear any messages from previous command execution
+	/* Clear any messages from previous command execution */
 	msgView, err := g.View("msg")
 	if err != nil {
 		return fmt.Errorf("error checking views: %w", err)
@@ -1055,7 +1055,7 @@ func cursorUp(g *gocui.Gui, v *gocui.View) error {
 		return err
 	}
 
-	// Clear input views
+	/* Clear input views */
 	if err := clearView(g, "input1"); err != nil {
 		return err
 	}
@@ -1069,28 +1069,28 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 	var cmd string
 	var err error
 
-	// Grab current highlighted line
+	/* Grab current highlighted line */
 	_, cy := v.Cursor()
 	if cmd, err = v.Line(cy); err != nil {
 		cmd = ""
 	}
 
-	// Get main view
+	/* Get main view */
 	mainView, err := g.View("main")
 	if err != nil {
 		return err
 	}
 
-	// Display command instruction
+	/* Display command instruction */
 	err = displayCmdInstruction(mainView, cmd)
 	if err != nil {
 		return err
 	}
 
-	// Get input views
+	/* Get input views */
 	inp1View, err := g.View("input1")
 	if err != nil {
-		// View not yet defined
+		/* View not yet defined */
 		if errors.Is(err, gocui.ErrUnknownView) {
 			return nil
 		}
@@ -1099,14 +1099,14 @@ func SetCurrentCmdInstruction(g *gocui.Gui, v *gocui.View) error {
 
 	inp2View, err := g.View("input2")
 	if err != nil {
-		// View not yet defined
+		/* View not yet defined */
 		if errors.Is(err, gocui.ErrUnknownView) {
 			return nil
 		}
 		return err
 	}
 
-	// Show inputs according to the command
+	/* Show inputs according to the command */
 	switch cmd {
 	case "init", "generate", "serve":
 		inp1View.Frame = false
@@ -1134,28 +1134,28 @@ func execCurCmd(g *gocui.Gui, v *gocui.View) error {
 	var cmd string
 	var err error
 
-	// Grab current highlighted line
+	/* Grab current highlighted line */
 	_, cy := v.Cursor()
 	if cmd, err = v.Line(cy); err != nil {
 		cmd = ""
 	}
 
-	// Exec command instruction
+	/* Exec command instruction */
 	msg := exec(g, cmd)
 
-	// Set view to msg screen
+	/* Set view to msg screen */
 	msgView, err := g.SetCurrentView("msg")
 	if err != nil {
 		return err
 	}
 
-	// Display exec result
+	/* Display exec result */
 	msgView.Clear()
 	if _, err := msgView.Write([]byte(msg)); err != nil {
 		return fmt.Errorf("error writing command result message: %w", err)
 	}
 
-	// Set view back to side screen
+	/* Set view back to side screen */
 	if _, err := g.SetCurrentView("side"); err != nil {
 		return err
 	}
@@ -1265,7 +1265,7 @@ func removeHighlight(v *gocui.View) {
 }
 
 func nextView(g *gocui.Gui, v *gocui.View) error {
-	// Check current command
+	/* Check current command */
 	sideView, err := g.View("side")
 	if err != nil {
 		return fmt.Errorf("error checking side view: %w", err)
@@ -1276,17 +1276,17 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 		return fmt.Errorf("error checking current command: %w", err)
 	}
 
-	// No view switching for these commands
+	/* No view switching for these commands */
 	if cmd == "generate" || cmd == "init" {
 		return nil
 	}
 
-	// Set current view on top and set background color
+	/* Set current view on top and set background color */
 	nextIndex := (active + 1) % len(viewArr)
 	curViewName := viewArr[nextIndex]
 
-	// If command is tags, skip input2 (title)
-	// Avoid changing colors highlights and move ahead
+	/* 	If command is tags, skip input2 (title)
+	   	Avoid changing colors highlights and move ahead */
 	if cmd == "tag" && curViewName == "input2" {
 		active = nextIndex
 		return nextView(g, v)
@@ -1303,7 +1303,7 @@ func nextView(g *gocui.Gui, v *gocui.View) error {
 	}
 	active = nextIndex
 
-	// Remove background and highlight from previous view
+	/* Remove background and highlight from previous view */
 	removeBgColor(v)
 	removeHighlight(v)
 
