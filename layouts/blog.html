@@ -17,14 +17,15 @@
                     </time>
                 </i>
             </span>
-            <a href="{{$blogsPath}}/{{.RootName}}.html">{{.Title}}</a>
+            <a href="{{$blogsPath}}/{{.RootName}}">{{.Title}}</a>
         </li>
         {{end}}
     </ul>
 
     <small>
+    {{ $siteURL := .Site.URL }}
     {{range .Site.Tags}}
-	<a href="tagged/{{.Slug}}/{{.Slug}}.html" title="See all posts by {{.Slug}} tag">#{{.Slug}}</a>
+	<a href="{{$siteURL}}/tagged/{{.Slug}}/{{.Slug}}" title="See all posts by {{.Slug}} tag">#{{.Slug}}</a>
     {{end}}
     </small>
 

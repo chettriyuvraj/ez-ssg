@@ -208,10 +208,22 @@ func main() {
 		fileServer := http.FileServer(http.Dir("./docs"))
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/blog" || r.URL.Path == "/blog/" {
+
+			requestPath := r.URL.Path
+
+			/* blog.html must be distinguished from the blog directory which contains posts */
+			if requestPath == "/blog" || requestPath == "/blog/" {
 				http.ServeFile(w, r, "./docs/blog.html")
 				return
 			}
+
+			/* Check if the path maps to a file with .html (e.g., `/blog/<postname>.html`) */
+			htmlPath := "./docs" + requestPath + ".html"
+			if _, err := os.Stat(htmlPath); err == nil {
+				http.ServeFile(w, r, htmlPath)
+				return
+			}
+
 			fileServer.ServeHTTP(w, r)
 		})
 
@@ -580,6 +592,7 @@ func renderPostHTML(post Post, cfg Config, destDir string) error {
 	render := bytes.Buffer{}
 	layoutTempl.Execute(&render, layoutContent)
 
+	// f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s", post.RootName)))
 	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", post.RootName)))
 	if err != nil {
 		return fmt.Errorf("error creating HTML file for %s: %w", post.RootName, err)
@@ -649,6 +662,7 @@ func renderTagsHTML(tag Tag, cfg Config, destDir string) error {
 	render := bytes.Buffer{}
 	layoutTempl.Execute(&render, layoutContent)
 
+	// f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s", tagAsPost.RootName)))
 	f, err := os.Create(filepath.Join(destDir, fmt.Sprintf("%s.html", tagAsPost.RootName)))
 	if err != nil {
 		return fmt.Errorf("error creating HTML file for %s: %w", tagAsPost.RootName, err)
