@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,7 +103,7 @@ var commands map[string]string = map[string]string{
 	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
 	"post":     "Creates a new post",
 	"tag":      "Creates one/multiple new tags under which posts can be classified.",
-	"serve":    "Serves the static files generated in a local HTTP server - to be used after generate command to view the output",
+	"serve":    "Serves the static files generated in a local HTTP server - to be used after generate command to view the output. Port number 3000 by default in GUI",
 }
 
 /* Fully rendered html for header, footer, etc */
@@ -207,7 +208,15 @@ func main() {
 		err = createTag(tags)
 
 	case "serve":
-		err = serveStaticSite()
+		if len(os.Args) < 3 {
+			logger.Fatalf(help())
+		}
+		portStr := os.Args[2]
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			logger.Fatalf(help())
+		}
+		err = serveStaticSite(port)
 	}
 
 	if err != nil {
@@ -506,7 +515,7 @@ func generateStaticSite() error {
 * 3. Render special pages i.e. homepage and blog listings page
 *
 ************************/
-func serveStaticSite() error {
+func serveStaticSite(port int) error {
 	fileServer := http.FileServer(http.Dir("./docs"))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -529,7 +538,7 @@ func serveStaticSite() error {
 		fileServer.ServeHTTP(w, r)
 	})
 
-	http.ListenAndServe(":3000", nil)
+	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 
 	return nil
 }
@@ -784,6 +793,7 @@ Commands:
   generate		Generates the static site.
   post			Creates a new post
   tag			Creates one/multiple new tag under which posts can be classified.
+  serve			Serves the static site at the specified port. Port 3000 by default in GUI.
   interactive		Starts interactive command line interface
 
 Commands Usage:
@@ -798,11 +808,6 @@ Commands Usage:
   Usage: ez-ssg generate
 
 
-  serve
-
-  Usage: ez-ssg serve
-
-
   post
 
   Usage: ez-ssg post <title> [options]
@@ -814,11 +819,16 @@ Commands Usage:
   tag
 
   Usage: ez-ssg tag <tag 1> <tag2> ..
-
   
+
   interactive
 
   Usage: ez-ssg interactive
+
+
+  serve
+
+  Usage: ez-ssg serve <port-number>
   
 `
 }
@@ -1215,7 +1225,7 @@ func exec(g *gocui.Gui, cmd string) (msg string) {
 		err = createTag(tags)
 
 	case "serve":
-		serveStaticSite()
+		serveStaticSite(3000)
 
 	default:
 		err = fmt.Errorf("command does not exist: %s", cmd)
