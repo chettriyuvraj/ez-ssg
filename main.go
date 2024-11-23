@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -101,6 +102,7 @@ var commands map[string]string = map[string]string{
 	"generate": "Generates the static site. Use it when you have all the content ready to generate HTML.",
 	"post":     "Creates a new post",
 	"tag":      "Creates one/multiple new tags under which posts can be classified.",
+	"serve":    "Serves the static files generated in a local HTTP server. To be used after generate command to view the output",
 }
 
 /* Fully rendered html for header, footer, etc */
@@ -120,7 +122,7 @@ var assetsEFS embed.FS // contains style.css file for website's css + a sample f
 var sampleCfg Config = Config{
 	Title:       "chettriyuvraj",
 	Description: "Yuvraj Chettri's personal blog",
-	URL:         "https://chettriyuvraj.github.io",
+	URL:         "http://localhost:3000",
 	SpecialLinks: []Link{
 		{
 			URL:         "https://www.linkedin.com/in/yuvraj-chettri/",
@@ -201,6 +203,19 @@ func main() {
 
 		tags := os.Args[2:]
 		err = createTag(tags)
+
+	case "serve":
+		fileServer := http.FileServer(http.Dir("./docs"))
+
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/blog" || r.URL.Path == "/blog/" {
+				http.ServeFile(w, r, "./docs/blog.html")
+				return
+			}
+			fileServer.ServeHTTP(w, r)
+		})
+
+		http.ListenAndServe(":3000", nil)
 	}
 
 	if err != nil {
