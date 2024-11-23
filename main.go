@@ -779,6 +779,11 @@ Commands Usage:
 
   Usage: ez-ssg generate
 
+  
+  serve
+
+  Usage: ez-ssg serve
+
 
   post
 
