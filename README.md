@@ -267,6 +267,11 @@ ez-ssg interactive
 ![Interactive GUI screen](/images/gui_example.png)
 
 
+## TODO
+
+- I want to add a _bookshelf_ page which is a grid-like thumbnail + link of what I've been reading recently. I love reading but don't really read as much as I'd like to. I feel the act of putting out what I'm reading motivates me to read more.
+
+
 ## Acknowledgement
 
 The theme is the [jekyllBear](https://github.com/knhash/jekyllBear) theme
