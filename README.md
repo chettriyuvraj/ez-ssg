@@ -3,7 +3,7 @@
 
 Want a minimal personal blog in 5 mins? Generate it using _ez-ssg_.
 
-Reference: [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)
+[chettriyuvraj.github.io](https://chettriyuvraj.github.io/)
 
 ## Table of contents
 
