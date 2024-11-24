@@ -1,10 +1,15 @@
-## ez-ssg
+# ez-ssg
 
-[Background](#background) <br>
 
-[How will the the static look?](#how-will-the-static-site-look)<br>
+Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)? Generate it in 5 minutes using _ez-ssg_.
 
-[How to use ez-ssg to generate my static site?](#how-to-use-ez-ssg-to-generate-my-static-website)<br>
+## Index
+
+- [Background](#background) <br>
+
+- [How will the the static look?](#how-will-the-static-site-look)<br>
+
+- [How to use ez-ssg to generate my static site?](#how-to-use-ez-ssg-to-generate-my-static-website)<br>
 &emsp;[Install](#install)<br>
 &emsp;[Organize your content](#organize-your-content)<br>
 &emsp;[Home Page](#home-page)<br>
@@ -17,18 +22,16 @@
 &emsp;[Generate static site](#generate-static-site)<br>
 &emsp;[Serve static site locally](#serve-static-site-locally)<br>
 
-[User Modes](#modes)<br>
+- [User Modes](#modes)<br>
 &emsp;[Command Line Mode](#command-line-mode)<br>
 &emsp;[GUI mode](#gui-mode)<br>
 
-[TODOs](#todo)<br>
+- [TODOs](#todo)<br>
 
-[Acknowledgements](#acknowledgement)<br>
+- [Acknowledgements](#acknowledgement)<br>
 
 
-## tl;dr
 
-Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)? Generate it in 5 minutes using _ez-ssg_.
 
 ## Background
 
@@ -304,7 +307,7 @@ ez-ssg interactive
 ![Interactive GUI screen](/images/gui_example.png)
 
 
-## TODO
+## TODOs
 
 - I want to add a _bookshelf_ page which is a grid-like thumbnail + link of what I've been reading recently. I love reading but don't really read as much as I'd like to. I feel the act of putting out what I'm reading motivates me to read more.
 
