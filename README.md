@@ -3,11 +3,13 @@
 
 Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)? Generate it in 5 minutes using _ez-ssg_.
 
-## Index
+## Table of contents
 
 [Background](#background) <br>
+
 [How will the the static look?](#how-will-the-static-site-look)<br>
-[How to use ez-ssg to generate my static site?](#how-to-use-ez-ssg-to-generate-my-static-website)
+
+[How to use ez-ssg to generate my static site?](#how-to-use-ez-ssg-to-generate-my-static-website)<br>
 &emsp;[Install](#install)<br>
 &emsp;[Organize your content](#organize-your-content)<br>
 &emsp;[Home Page](#home-page)<br>
@@ -17,12 +19,15 @@ Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.i
 &emsp;[Create a new tag](#create-a-new-tag)<br>
 &emsp;[Fill up config.json](#fill-up-configjson)<br>
 &emsp;[Images and favicon](#images-and-favicon)<br>
-&emsp;[Generate static site](#generate-static-site)
+&emsp;[Generate static site](#generate-static-site)<br>
 &emsp;[Serve static site locally](#serve-static-site-locally)<br>
+
 [User Modes](#modes)<br>
 &emsp;[Command Line Mode](#command-line-mode)<br>
 &emsp;[GUI mode](#gui-mode)<br>
+
 [TODOs](#todo)<br>
+
 [Acknowledgements](#acknowledgement)<br>
 
 
