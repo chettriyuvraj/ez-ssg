@@ -375,10 +375,12 @@ func generateStaticSite() error {
 		return fmt.Errorf("error resetting site directory: %w", err)
 	}
 
-	/* Copy over 'markdown/assets' folder into site directory */
-	assetsFS := os.DirFS(filepath.Join(MARKDOWN_DIR, ASSETS_DIR))
-	if err := os.CopyFS(SITE_DIR, assetsFS); err != nil {
-		return fmt.Errorf("error copying markdown/assets folder: %w", err)
+	/* Copy over 'markdown/assets' folder into site directory */ // Copy the entire assets directory
+
+	sourceAssetsPath := filepath.Join(MARKDOWN_DIR, ASSETS_DIR)
+	targetAssetsPath := filepath.Join(SITE_DIR, ASSETS_DIR)
+	if err := copyDir(sourceAssetsPath, targetAssetsPath); err != nil {
+		return fmt.Errorf("error copying assets directory from markdown to site: %w", err)
 	}
 
 	/* This config struct contains both config + content (posts, tags) */
@@ -504,6 +506,51 @@ func generateStaticSite() error {
 	}
 
 	return nil
+}
+
+func copyDir(src, dst string) error {
+	/* Get source info */
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("error getting source info: %w", err)
+	}
+
+	/* Create destination directory with same permissions */
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("error creating destination directory: %w", err)
+	}
+
+	/* Read source directory */
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("error reading source directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	sourceContent, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("error reading source file: %w", err)
+	}
+
+	return os.WriteFile(dst, sourceContent, 0644)
 }
 
 /***********************
@@ -772,6 +819,7 @@ func resetStaticSite() error {
 	if err := os.MkdirAll(filepath.Join(SITE_DIR, "tagged"), 0750); err != nil {
 		return fmt.Errorf("error creating docs/tagged folder: %w", err)
 	}
+	/* Copy embedded assets to docs/assets instead of docs */
 	if err := os.CopyFS(SITE_DIR, assetsEFS); err != nil {
 		return fmt.Errorf("error copying docs/assets folder: %w", err)
 	}
