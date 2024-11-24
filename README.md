@@ -1,7 +1,9 @@
 # ez-ssg
 
 
-Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)? Generate it in 5 minutes using _ez-ssg_.
+Want a minimal personal blog in 5 mins? Generate it using _ez-ssg_.
+
+Reference: [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)
 
 ## Table of contents
 
