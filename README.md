@@ -1,14 +1,44 @@
-# README
-
 ## ez-ssg
+
+[Background](#background) <br>
+
+[How will the the static look?](#how-will-the-static-site-look)<br>
+
+[How to use ez-ssg to generate my static site?](#how-to-use-ez-ssg-to-generate-my-static-website)<br>
+&emsp;[Install](#install)<br>
+&emsp;[Organize your content](#organize-your-content)<br>
+&emsp;[Home Page](#home-page)<br>
+&emsp;[Blog Listings Page](#blog-listings-page)<br>
+&emsp;[Config](#config)<br>
+&emsp;[Create a new post](#create-a-new-post)<br>
+&emsp;[Create a new tag](#create-a-new-tag)<br>
+&emsp;[Fill up config.json](#fill-up-configjson)<br>
+&emsp;[Images and favicon](#images-and-favicon)<br>
+&emsp;[Generate static site](#generate-static-site)<br>
+&emsp;[Serve static site locally](#serve-static-site-locally)<br>
+
+[User Modes](#modes)<br>
+&emsp;[Command Line Mode](#command-line-mode)<br>
+&emsp;[GUI mode](#gui-mode)<br>
+
+[TODOs](#todo)<br>
+
+[Acknowledgements](#acknowledgement)<br>
+
+
+## tl;dr
+
+Want a static site like [chettriyuvraj.github.io](https://chettriyuvraj.github.io/)? Generate it in 5 minutes using _ez-ssg_.
+
+## Background
 
 I created [my personal website](https://chettriyuvraj.github.io/) using [Jekyll](https://jekyllrb.com/) a while back.
 
-For a minimal website like mine, Jekyll felt like a bit of a main to set up.
+For a minimal website like mine, Jekyll felt like a bit of a pain to set up.
 
 Since I already knew the theme and styling I wanted, I decided to write my own little static-site-generator.
 
-Want a static site like chettriyuvraj.github.io? Generate it in 5 minutes using _ez-ssg_.
+
 
 ## How will the static site look?
 
@@ -186,7 +216,7 @@ This will generate a folder as follows:
 
 ### Serve static site locally
 
-To see what you created:
+To see what you created, run this from outside the _docs_ directory
 
 ```
 ez-ssg serve <port number>
@@ -278,6 +308,13 @@ ez-ssg interactive
 
 - I want to add a _bookshelf_ page which is a grid-like thumbnail + link of what I've been reading recently. I love reading but don't really read as much as I'd like to. I feel the act of putting out what I'm reading motivates me to read more.
 
+## Troubleshooting
+
+The following points have been stated in the guide but are being stated again:
+
+- You must change the _URL_ field in _config.json_ to _http://localhost:<port_number>_ when serving locally and change it to your website's URL when generating static content for your site
+- Avoid trailing slash e.g. set _URL_ as _https://chettriyuvraj.github.io_ instead of _https://chettriyuvraj.github.io/_ when setting _URL_ field in _config.json_
+- If you have created a post under a given tag, but not created a tag using _ez-ssg tag tagname_, the tag won't show up as a hashtag to filter in the blog listings page. 
 
 ## Acknowledgement
 
